@@ -1,19 +1,19 @@
 # Claude Account Reset
 
-**在 Mac 上重置已知的 Claude 登录状态，同时校验本地会话文件未被改动。**
+**在 Mac 上重置已知的 Claude 登录状态，并在换账号后重新关联本地 Code 对话。**
 
 [![Verify](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml/badge.svg)](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml)
 ![Platform: macOS](https://img.shields.io/badge/platform-macOS-black)
 ![Node.js: 22+](https://img.shields.io/badge/Node.js-22%2B-43853d)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[网页与下载](https://claude-account-reset.pages.dev/) · [使用说明](#快速开始) · [清理范围](#清理范围) · [原理与经验](docs/LESSONS.md) · [问题反馈](https://github.com/ForceMind/claude-account-reset/issues)
+[网页与下载](https://claude-account-reset.pages.dev/) · [使用说明](#快速开始) · [恢复对话](#恢复本地-code-对话) · [清理范围](#清理范围) · [原理与经验](docs/LESSONS.md) · [问题反馈](https://github.com/ForceMind/claude-account-reset/issues)
 
 Claude 的账号状态分散在配置、Cookie、Local Storage 和系统钥匙串中，会话数据也可能与这些状态共用目录。直接删除整个应用数据目录，会同时丢失本地历史和设置。
 
 这个工具使用明确的字段与键名规则清理已知账号状态，保留会话目录和其他存储记录，并在操作前后验证。默认只生成检查结果；执行清理、扩展清理范围、删除共享钥匙串密钥，分别需要显式选项。
 
-> **当前版本：0.1.0，早期版本。** 规则依据 Claude Desktop 4.29.0 的本地检查及 MultiClaude 源码整理，尚未覆盖所有版本、企业登录方式或自定义配置。成功报告表示本工具覆盖的检查通过，不表示全机账号痕迹已全部消失。
+> **当前版本：0.2.0，早期版本。** 规则依据 Claude Desktop 4.29.0 的本地检查及 MultiClaude 源码整理，尚未覆盖所有版本、企业登录方式或自定义配置。成功报告表示本工具覆盖的检查通过，不表示全机账号痕迹已全部消失。
 >
 > 独立社区项目，与 Anthropic 无隶属关系。
 
@@ -22,6 +22,7 @@ Claude 的账号状态分散在配置、Cookie、Local Storage 和系统钥匙�
 - [适用场景](#适用场景)
 - [环境要求](#环境要求)
 - [快速开始](#快速开始)
+- [恢复本地 Code 对话](#恢复本地-code-对话)
 - [命令参考](#命令参考)
 - [清理范围](#清理范围)
 - [会话保护与执行机制](#会话保护与执行机制)
@@ -38,7 +39,7 @@ Claude 的账号状态分散在配置、Cookie、Local Storage 和系统钥匙�
 - 想检查客户端是否仍保存旧账号提示、同步归属或已知认证缓存。
 - 需要一份可审阅的清理计划，以及清理后的文件保护验证结果。
 
-本工具不提供多账号启动管理、云端聊天迁移、服务器端 token 撤销或取证级数据擦除。需要长期并行使用多个账号时，独立 profile 的管理属于另一类需求。
+本工具提供两个独立入口：`bin/reset.mjs` 用于清理，`bin/recover.mjs` 用于本地 Code 索引恢复。它不提供多账号启动管理、云端聊天迁移、服务器端 token 撤销或取证级数据擦除。需要长期并行使用多个账号时，独立 profile 的管理属于另一类需求。
 
 ## 环境要求
 
@@ -63,12 +64,12 @@ Claude 的账号状态分散在配置、Cookie、Local Storage 和系统钥匙�
 
 ```sh
 bash install.sh
-cd claude-account-reset-0.1.0
+cd claude-account-reset-0.2.0
 ```
 
 安装脚本会新建版本目录、下载并校验工具包、使用锁文件安装依赖。已有同名目录时停止，不覆盖。**安装不会检查或清理 Claude 数据**，只打印下一步命令。
 
-也可以下载[工具压缩包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.1.0.tar.gz)和 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)，自行校验和解压。
+也可以下载[工具压缩包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.2.0.tar.gz)和 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)，自行校验和解压。
 
 **方式 B：从源码安装**
 
@@ -120,7 +121,68 @@ node bin/reset.mjs --apply --yes --traces --include-keychain
 
 保留本地会话文件不等于把旧账号的聊天迁移到新账号；是否显示旧历史由 Claude 自身的账号规则决定。
 
+## 恢复本地 Code 对话
+
+换账号后，如果侧边栏为空但旧 `.jsonl` 正文还在，可以为目标账号重新建立本地 Code 索引。此功能**不会重置登录**，也不会自动恢复 Cowork 或普通云端聊天。
+
+### 预览与执行
+
+1. 在 Claude Desktop 中登录希望使用的新账号，进入 Code 一次，再完全退出客户端。
+2. 在工具目录运行预览，核对目标账号目录、计划数量、跳过原因和 thinking 检测结果。
+3. 确认范围后执行；成功后重新打开 Claude，检查列表和正文。
+
+```sh
+# 只预览，不写入索引或备份
+node bin/recover.mjs --report recovery-preview.report.json
+
+# 备份目标索引，新增缺失的会话记录
+node bin/recover.mjs --apply --yes --report recovery-result.report.json
+```
+
+| 恢复参数 | 说明 |
+| --- | --- |
+| `--source PATH` | 源 Desktop 目录，可重复传入；默认发现 `Claude` 和相邻 `Claude-*` |
+| `--target PATH` | 目标 Desktop 目录；默认 `~/Library/Application Support/Claude` |
+| `--org UUID` | 目标账号下已有的组织目录；发现多个组织时必须显式指定 |
+| `--backup-dir PATH` | 备份父目录；默认当前目录中的 `recovery-backups`，必须在 Claude 数据目录之外 |
+| `--apply --yes` | 显式执行；仅新增，不覆盖已有会话 |
+| `--report FILE` | 新建权限为 `0600` 的本地报告 |
+| `--help` | 查看恢复命令帮助 |
+
+`--target` 的 `config.json` 必须包含目标账号标识，且账号下已经有初始化的组织目录。该标识来自本地配置，不代表工具在线验证了当前身份。执行前请自行确认目标账号；工具不会替你登录、猜测组织或授予文件夹信任。
+
+### 恢复哪些数据
+
+- 从源目录读取本地 `local_*.json` Code 索引，与默认 `~/.claude/projects/<project>/<session-id>.jsonl` 主会话正文匹配。
+- 同一 CLI 会话只计划一次，已有目标记录优先；重复执行跳过已经存在的记录。
+- 正文缺失、为空、JSON 无法解析或存在内容不同的同名副本时跳过并报告。子智能体正文不会单独变成 Desktop 会话。
+- 保留标题、时间、归档状态及必要本地路径；工作目录缺失会报告，不擅自改路径。查看历史成功不代表可以继续在已丢失的目录中工作。
+- 只复制允许清单中的本地元数据，排除旧连接器、云端桥接、待执行动作等配置。恢复记录使用**手动权限，Remote Control 关闭**。
+- 原索引、正文和 thinking 块均不改写；恢复不会发起新对话、执行历史工具调用或修改旧凭据。
+
+### 跨组织 thinking 提示
+
+可能看到：`Claude can't use thinking from another organization`。
+
+这是历史推理块的兼容性提示，不能据此判断旧账号仍然登录。根据 [Anthropic preserved thinking 文档](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking#thinking-blocks-stay-with-the-account-that-produced-them)，部分模型的 thinking 绑定生成它的账号；跨组织发送时可能被 API 丢弃，请求仍可成功，但模型需要重新推理，可能增加延迟与 token 消耗。
+
+**本工具选择保留完整历史。** 它统计 `thinking`、`redacted_thinking` 和带签名的块，不输出内容，不尝试解密签名、判断签名所属组织或重新签名。报告中的 `thinking.organizationCompatibility` 固定为 `not-verified`；检测到思考块只说明存在潜在兼容性限制，不证明每个块一定来自其他组织。
+
+即使索引恢复、正文显示和保护校验都通过，也不能承诺新账号能复用旧思考。工具不会通过删除思考来隐藏提示，`uiVerified` 始终由命令报告为 `false`，需要在客户端另行验收。
+
+### 备份、失败与报告
+
+执行前创建权限为 `0700` 的独立备份目录，保存目标目录原文件及 `manifest.json`。备份可能含私有会话信息，**不要提交到 GitHub 或上传 Pages**；默认目录已加入 `.gitignore`。
+
+受控写入失败时只尝试撤销本次新增的文件，原件和备份保留。强制结束进程、断电或撤销失败可能留下部分记录，不能当作完整事务；根据 manifest 的 `planned`、`created` 和 `status` 人工核对，不要整目录覆盖恢复后的新对话。
+
+报告包含 `planned`、`created`、`skipped`、`missingWorkingDirectories`、`originalsUnchanged`、`backupDirectory`、`thinking` 和 `uiVerified`。`created: 0` 可能意味着会话已存在或全部被跳过；应查看原因，而不是假定全部恢复。报告路径和会话标识属于本地私有信息。
+
+经验、实测边界和实现说明见 [本地对话恢复](docs/RECOVERY.md)。
+
 ## 命令参考
+
+以下选项属于账号清理命令；恢复参数见上一节。
 
 ```text
 node bin/reset.mjs [options]
@@ -316,7 +378,9 @@ GitHub Actions 在 macOS 与 Node.js 22 上运行测试并构建下载包。初�
 ```text
 bin/reset.mjs          命令行入口、参数及报告输出
 lib/core.mjs           发现、规则、清理与保护校验
-test/core.test.mjs     合成数据测试
+bin/recover.mjs        本地 Code 会话恢复命令
+lib/recovery.mjs       预览、去重、备份、thinking 检测与恢复
+test/                 清理与恢复的合成数据测试
 scripts/build-site.mjs 下载包、校验清单和安装脚本生成
 site/                 静态网页与生成的下载文件
 docs/LESSONS.md        原理、判断边界及经验
@@ -334,6 +398,8 @@ wrangler pages deploy site --project-name claude-account-reset --branch main
 ```
 
 仓库的 `wrangler.jsonc` 与安装脚本生成器配置了本项目名称和生产下载域名。部署自己的 fork 时，需要先调整项目名称与生成器中的下载地址，再构建。GitHub 测试通过不会自动部署网页。
+
+恢复测试另外覆盖跨账号索引重建、重复运行、目标冲突、组织歧义、正文缺失、部分写入回退、thinking 统计与原始正文保留。新版工具只使用合成数据验收，未在真实账号上再次执行恢复。
 
 ## 参与贡献
 
