@@ -1,0 +1,12 @@
+{
+  "name": "claude-account-reset",
+  "version": "0.1.0",
+  "description": "Local macOS Claude account reset with conversation preservation checks",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "bin": { "claude-account-reset": "bin/reset.mjs" },
+  "scripts": { "test": "node --test", "build:site": "node scripts/build-site.mjs", "audit": "node bin/reset.mjs" },
+  "dependencies": { "classic-level": "3.0.0" }
+}
