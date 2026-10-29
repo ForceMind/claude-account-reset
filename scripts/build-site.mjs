@@ -10,7 +10,7 @@ const name = `claude-account-reset-${pkg.version}.tar.gz`;
 for (const stale of await fs.readdir(out)) {
   if (/^claude-account-reset-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/.test(stale) && stale !== name) await fs.unlink(path.join(out, stale));
 }
-execFileSync('tar', ['-czf', path.join(out, name), 'package.json', 'package-lock.json', 'bin', 'lib', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md'], { cwd: root });
+execFileSync('tar', ['-czf', path.join(out, name), 'package.json', 'package-lock.json', 'bin', 'lib', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md', 'docs/HANDOFF.md'], { cwd: root });
 const sha = createHash('sha256').update(await fs.readFile(path.join(out, name))).digest('hex');
 await fs.writeFile(path.join(out, 'SHA256SUMS'), `${sha}  ${name}\n`);
 await fs.writeFile(path.join(out, 'install.sh'), `#!/bin/bash
@@ -31,7 +31,7 @@ rm "$ARCHIVE"
 cd "$DEST"
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 printf '\\nInstalled %s. Quit Claude, then run the inspection:\\n' "$DEST"
-printf 'cd "%s"\\nnode bin/reset.mjs --traces\\nnode bin/recover.mjs\\n' "$DEST"
+printf 'cd "%s"\\nnode bin/reset.mjs --traces\\nnode bin/recover.mjs\\nnode bin/handoff.mjs\\n' "$DEST"
 printf '\\nNo Claude data has been inspected or changed by this installer.\\n'
 `);
 console.log(`Built ${name} SHA256 ${sha}`);

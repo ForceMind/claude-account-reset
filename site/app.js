@@ -3,7 +3,9 @@ const modes = {
   reset: ['node bin/reset.mjs --apply --yes', '执行清理：移除已知登录状态，保留其他记录，并校验受保护会话文件。'],
   traces: ['node bin/reset.mjs --apply --yes --traces', '执行扩展清理：在登录状态之外，额外移除已知账号功能缓存、遥测和退出标记。'],
   'recover-audit': ['node bin/recover.mjs', '只预览可恢复的本地 Code 索引、跳过原因和 thinking 检测。请先登录目标账号并进入 Code，再退出客户端。'],
-  recover: ['node bin/recover.mjs --apply --yes', '执行恢复：先备份目标索引，新增缺失记录；保留原件与 thinking，手动权限，远程控制关闭。']
+  recover: ['node bin/recover.mjs --apply --yes', '执行恢复：先备份目标索引，新增缺失记录；保留原件与 thinking，手动权限，远程控制关闭。'],
+  'handoff-audit': ['node bin/handoff.mjs', '只预览已知 thinking 移除计划，不修改正文、不生成文档。'],
+  handoff: ['node bin/handoff.mjs --apply --yes --discard-backup', '执行正文转换：生成可见历史文档，备份后移除已知思考块并恢复索引；无跳过项且校验成功才删除本次备份。失败保留。']
 };
 let mode = 'audit';
 const keychain = document.querySelector('#keychain');

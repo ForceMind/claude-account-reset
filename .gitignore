@@ -4,3 +4,5 @@ site/downloads/
 *.report.json
 .DS_Store
 recovery-backups/
+handoff-documents/
+handoff-backups/
