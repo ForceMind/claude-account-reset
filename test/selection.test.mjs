@@ -43,3 +43,6 @@ test('50-session baseline protects recent, changed, explicitly excluded and newl
 test('baseline protects index-only changes even when transcript bytes did not change',async t=>{
  const f=await fixture(t),s=await f.add();const p=await f.plan('recover');const file=path.join(f.home,'baseline.plan.json');await savePlan(p,file);await fs.writeFile(s.index,JSON.stringify({...s.record,title:'changed title'}));const next=await f.plan('recover',{baseline:file});assert.equal(next.selection[0].reason,'index-changed-since-baseline');assert.equal(next.actions.length,0);
 });
+test('explicit new CLI selection can exclude old CLI without excluding the whole Desktop conversation',async t=>{
+ const f=await fixture(t),old=await f.add(id,{body:thoughts});const next=uuid(888);const latest=await f.add(next,{desktop:id,source:f.dest,body:thoughts});const p=await f.plan('handoff',{include:[next],exclude:[id]});assert.equal(p.selection[0].status,'selected');assert.equal(p.selection[0].selectedCli,next);await executePlan(p,f.ctx);assert.equal(await fs.readFile(old.file,'utf8'),thoughts);assert.ok(!(await fs.readFile(latest.file,'utf8')).includes('PRIVATE_'));
+});
