@@ -1,30 +1,43 @@
-const modes = {
-  audit: ['node bin/reset.mjs --traces', '默认只读。展示已知字段的处理计划，检查后删除临时数据库副本。'],
-  reset: ['node bin/reset.mjs --apply --yes', '执行清理：移除已知登录状态，保留其他记录，并校验受保护会话文件。'],
-  traces: ['node bin/reset.mjs --apply --yes --traces', '执行扩展清理：在登录状态之外，额外移除已知账号功能缓存、遥测和退出标记。'],
-  'recover-audit': ['node bin/recover.mjs', '只预览可恢复的本地 Code 索引、跳过原因和 thinking 检测。请先登录目标账号并进入 Code，再退出客户端。'],
-  recover: ['node bin/recover.mjs --apply --yes', '执行恢复：先备份目标索引，新增缺失记录；保留原件与 thinking，手动权限，远程控制关闭。'],
-  'handoff-audit': ['node bin/handoff.mjs', '只预览已知 thinking 移除计划，不修改正文、不生成文档。'],
-  handoff: ['node bin/handoff.mjs --apply --yes --discard-backup', '执行正文转换：生成可见历史文档，备份后移除已知思考块并恢复索引；无跳过项且校验成功才删除本次备份。失败保留。']
+const modes={
+ audit:{command:'reset',label:'只生成账号检查计划，不修改客户端数据。',execute:false},
+ reset:{command:'reset',label:'审阅计划后再执行；账号清理先备份并校验。',execute:true},
+ traces:{command:'reset',flags:['--traces'],label:'计划额外包含已知账号功能、遥测和退出标记；不是全盘缓存清理。',execute:true},
+ 'recover-audit':{command:'recover',label:'只生成会话恢复计划，显示选择、保护和副本分类。',execute:false},
+ recover:{command:'recover',label:'仅新增缺失索引；手动权限、远程控制关闭，保留正文。',execute:true},
+ 'handoff-audit':{command:'handoff',label:'只生成正文转换计划，核对thinking数量、范围和空间需求。',execute:false},
+ handoff:{command:'handoff',label:'执行会改写选定正文。先检查备份与暂存结果，再安装并校验。',execute:true}
 };
-let mode = 'audit';
-const keychain = document.querySelector('#keychain');
-function render() {
-  const [base, description] = modes[mode];
-  keychain.disabled = !['reset', 'traces'].includes(mode);
-  if (keychain.disabled) keychain.checked = false;
-  const command = base + (keychain.checked ? ' --include-keychain' : '');
-  document.querySelector('#mode-command').textContent = command;
-  document.querySelector('#copy-mode').dataset.copy = command;
-  document.querySelector('#mode-description').textContent = description;
-  document.querySelectorAll('[data-mode]').forEach(b => { const active = b.dataset.mode === mode; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
+let mode='audit';
+const node=s=>document.querySelector(s);
+const uuid=/^(?:local_)?[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+function render(){
+ const spec=modes[mode],sessionMode=spec.command!=='reset';let error='';
+ node('#keychain').disabled=!['reset','traces'].includes(mode);if(node('#keychain').disabled)node('#keychain').checked=false;
+ node('#selection-controls').hidden=!sessionMode;
+ const flags=[...(spec.flags??[])];
+ if(node('#keychain').checked)flags.push('--include-keychain');
+ if(node('#discard').checked)flags.push('--discard-backup');
+ if(sessionMode){
+  const ids=node('#session-ids').value.trim().split(/[\s,]+/).filter(Boolean);
+  if(ids.some(id=>!uuid.test(id)))error='会话 ID 格式不正确，请从本地预览结果复制 UUID。';
+  else for(const id of ids)flags.push('--session',id);
+  const date=node('#protect-date').value,zone=node('#time-zone').value;
+  if(date){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!['Asia/Shanghai','UTC'].includes(zone))error='请指定有效保护日期和时区。';else flags.push('--protect-since',date,'--time-zone',zone);}
+ }
+ const plan=`node bin/${spec.command}.mjs${flags.length?' '+flags.join(' '):''} --plan-out ${spec.command}.plan.json`;
+ const execute=`node bin/${spec.command}.mjs --execute ${spec.command}.plan.json --yes`;
+ node('#mode-command').textContent=error||plan;node('#copy-mode').dataset.copy=error?'':plan;node('#copy-mode').disabled=!!error;
+ node('#execute-step').hidden=!spec.execute;
+ node('#execute-command').textContent=execute;node('#copy-execute').dataset.copy=error?'':execute;node('#copy-execute').disabled=!!error;
+ node('#mode-description').textContent=error||spec.label;
+ document.querySelectorAll('[data-mode]').forEach(b=>{const active=b.dataset.mode===mode;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
 }
-document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; render(); }));
-keychain.addEventListener('change', render);
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;render();}));
+for(const id of ['#keychain','#discard','#session-ids','#protect-date','#time-zone'])node(id).addEventListener('input',render);
 let timer;
-document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', async () => {
-  const status = document.querySelector('#status');
-  try { await navigator.clipboard.writeText(b.dataset.copy); status.textContent = '命令已复制'; }
-  catch { status.textContent = '无法自动复制，请选择命令文本手动复制'; }
-  clearTimeout(timer); timer = setTimeout(() => { status.textContent = ''; }, 3000);
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
+ if(!b.dataset.copy)return;const status=node('#status');
+ try{await navigator.clipboard.writeText(b.dataset.copy);status.textContent='命令已复制';}catch{status.textContent='无法自动复制，请手动选择命令';}
+ clearTimeout(timer);timer=setTimeout(()=>{status.textContent='';},3000);
 }));
+render();

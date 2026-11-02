@@ -6,3 +6,5 @@ site/downloads/
 recovery-backups/
 handoff-documents/
 handoff-backups/
+operation-backups/
+*.plan.json

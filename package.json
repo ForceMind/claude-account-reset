@@ -1,6 +1,6 @@
 {
   "name": "claude-account-reset",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Local macOS Claude account reset with conversation preservation checks",
   "type": "module",
   "private": true,
@@ -11,14 +11,16 @@
   "bin": {
     "claude-account-reset": "bin/reset.mjs",
     "claude-conversation-recover": "bin/recover.mjs",
-    "claude-handoff": "bin/handoff.mjs"
+    "claude-handoff": "bin/handoff.mjs",
+    "claude-backup": "bin/backup.mjs"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.mjs",
     "build:site": "node scripts/build-site.mjs",
     "audit": "node bin/reset.mjs",
     "recover": "node bin/recover.mjs",
-    "handoff": "node bin/handoff.mjs"
+    "handoff": "node bin/handoff.mjs",
+    "backup": "node bin/backup.mjs"
   },
   "dependencies": {
     "classic-level": "3.0.0"

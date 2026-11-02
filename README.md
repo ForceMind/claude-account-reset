@@ -1,78 +1,58 @@
 # Claude Account Reset
 
-**在 Mac 上重置已知的 Claude 登录状态，并在换账号后重新关联本地 Code 对话。**
+**在 macOS 上审阅、清理已知 Claude 账号状态，恢复本地 Code 列表，或生成去掉旧 thinking 的接手文档。**
 
 [![Verify](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml/badge.svg)](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml)
-![Platform: macOS](https://img.shields.io/badge/platform-macOS-black)
-![Node.js: 22+](https://img.shields.io/badge/Node.js-22%2B-43853d)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![macOS](https://img.shields.io/badge/platform-macOS-black)
+![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-43853d)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[网页与下载](https://claude-account-reset.pages.dev/) · [使用说明](#快速开始) · [接手文档](#清理-thinking-并生成接手文档) · [恢复对话](#恢复本地-code-对话) · [清理范围](#清理范围) · [原理与经验](docs/LESSONS.md) · [问题反馈](https://github.com/ForceMind/claude-account-reset/issues)
+[网页与下载](https://claude-account-reset.pages.dev/) · [安全机制](docs/SAFETY.md) · [恢复经验](docs/RECOVERY.md) · [接手文档](docs/HANDOFF.md) · [反馈](https://github.com/ForceMind/claude-account-reset/issues)
 
-Claude 的账号状态分散在配置、Cookie、Local Storage 和系统钥匙串中，会话数据也可能与这些状态共用目录。直接删除整个应用数据目录，会同时丢失本地历史和设置。
+**v0.4.0 是早期工具，采用“保存计划 → 审阅 → 校验备份 → 执行”的流程。** 未传执行参数时只预览原始数据。计划过期、目标不明确、备份不一致或空间不足时停止。
 
-这个工具使用明确的字段与键名规则清理已知账号状态，保留会话目录和其他存储记录，并在操作前后验证。默认只生成检查结果；执行清理、扩展清理范围、删除共享钥匙串密钥，分别需要显式选项。
-
-> **当前版本：0.3.0，早期版本。** 规则依据 Claude Desktop 4.29.0 的本地检查及 MultiClaude 源码整理，尚未覆盖所有版本、企业登录方式或自定义配置。成功报告表示本工具覆盖的检查通过，不表示全机账号痕迹已全部消失。
->
-> 独立社区项目，与 Anthropic 无隶属关系。
+独立社区项目，与 Anthropic 无隶属关系。不能解除账号限制、保证设备匿名、迁移云端所有权或保证所有 Claude 版本兼容。最初规则基于 Desktop 4.29.0；新版实现使用合成数据验证，未在用户真实账号上再次执行，也未进行真实模型续聊或浏览器验收。
 
 ## 目录
 
-- [适用场景](#适用场景)
-- [环境要求](#环境要求)
-- [快速开始](#快速开始)
-- [清理 thinking 并生成接手文档](#清理-thinking-并生成接手文档)
-- [恢复本地 Code 对话](#恢复本地-code-对话)
+- [选择入口](#选择入口)
+- [安装与快速开始](#安装与快速开始)
 - [命令参考](#命令参考)
-- [清理范围](#清理范围)
-- [会话保护与执行机制](#会话保护与执行机制)
-- [报告与退出状态](#报告与退出状态)
-- [隐私与数据处理](#隐私与数据处理)
-- [常见问题](#常见问题)
-- [开发与部署](#开发与部署)
-- [参与贡献](#参与贡献)
-- [许可证与参考](#许可证与参考)
+- [选择和保护会话](#选择和保护会话)
+- [多副本与续接](#多副本与续接)
+- [账号与身份边界](#账号与身份边界)
+- [备份验证与恢复](#备份验证与恢复)
+- [报告与失败](#报告与失败)
+- [隐私和限制](#隐私和限制)
+- [开发与贡献](#开发与贡献)
 
-## 适用场景
+## 选择入口
 
-- 准备登录另一个 Claude 账号，希望保留本地会话文件。
-- 想检查客户端是否仍保存旧账号提示、同步归属或已知认证缓存。
-- 需要一份可审阅的清理计划，以及清理后的文件保护验证结果。
+| 命令 | 用途 | 对正文的影响 |
+| --- | --- | --- |
+| `bin/reset.mjs` | 重置明确的登录字段、Cookie 和账号缓存 | 不改写对话正文 |
+| `bin/recover.mjs` | 为目标账号新增缺失的本地 Code 索引 | 保留正文和 thinking |
+| `bin/handoff.mjs` | 移除已知 thinking，生成可见历史文档，再补充索引 | **会改写选中的共享正文** |
+| `bin/backup.mjs` | 检查备份、生成恢复计划、恢复指定条目 | 恢复会重新带回原内容，可能包括登录凭据 |
 
-本工具提供独立入口：`bin/reset.mjs` 用于清理，`bin/recover.mjs` 用于本地 Code 索引恢复。`bin/handoff.mjs` 则在明确授权后清理已知思考块、生成可见历史文档并恢复索引。它不提供多账号启动管理、云端聊天迁移、服务器端 token 撤销或取证级数据擦除。需要长期并行使用多个账号时，独立 profile 的管理属于另一类需求。
+缓存目录、外部浏览器、硬件设备密钥不是本版自动清理目标。Cowork 与普通云端聊天暂不支持自动恢复。
 
-## 环境要求
+## 安装与快速开始
 
-| 项目 | 要求 |
-| --- | --- |
-| 操作系统 | macOS；命令行入口会拒绝其他系统 |
-| 运行时 | Node.js 22+，附带 npm |
-| 运行身份 | 当前登录用户；不要使用 `sudo` |
-| 应用状态 | 检查和清理前均需退出 Claude Desktop、Claude Code，并在操作期间保持关闭 |
-| 网络 | 安装时需要访问下载站和 npm；清理工具本身不发送网络请求 |
-| Git | 仅从源码安装时需要 |
+需要 **macOS、Node.js 22+ 和 npm**；从源码安装另需 Git。以自己的用户运行，不使用 `sudo`。操作期间完全退出 Claude Desktop、Code 及其后台任务。
 
-清理会删除登录材料，多个文件之间没有全局事务，也不会自动备份或恢复令牌。请先用自己的备份方案保存重要会话。
+### 网页下载
 
-## 快速开始
-
-### 1. 安装工具
-
-**方式 A：下载脚本**
-
-从[下载网页](https://claude-account-reset.pages.dev/)获取 `install.sh`，阅读脚本后，在它所在的目录执行：
+在[下载页面](https://claude-account-reset.pages.dev/)获取并阅读 `install.sh`：
 
 ```sh
 bash install.sh
-cd claude-account-reset-0.3.0
+cd claude-account-reset-0.4.0
 ```
 
-安装脚本会新建版本目录、下载并校验工具包、使用锁文件安装依赖。已有同名目录时停止，不覆盖。**安装不会检查或清理 Claude 数据**，只打印下一步命令。
+脚本新建版本目录，下载并校验工具包，按锁文件安装依赖。已有同名目录时停止。安装不扫描或修改 Claude 数据，只打印预览命令。也可下载[工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.0.tar.gz)与 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)自行校验。
 
-也可以下载[工具压缩包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.3.0.tar.gz)和 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)，自行校验和解压。
-
-**方式 B：从源码安装**
+### 从源码安装
 
 ```sh
 git clone https://github.com/ForceMind/claude-account-reset.git
@@ -80,321 +60,189 @@ cd claude-account-reset
 npm ci --ignore-scripts --no-audit --no-fund
 ```
 
-项目目前通过源码和网页下载包分发，未发布到 npm。
+项目没有发布到 npm。安装访问下载站和 npm；本地操作代码不发送网络请求。
 
-### 2. 先检查
+### 两步执行
 
-退出 Claude Desktop 和 Claude Code 后运行：
-
-```sh
-node bin/reset.mjs --traces
-```
-
-这一步展示扩展清理范围内的计划，不修改原始 Claude 数据。Local Storage 在本机私有临时副本中读取，结束后删除副本。
-
-**默认会发现并处理多个 Desktop 数据目录。** 请阅读报告中的路径，确认哪些目录属于你希望重置的账号。需要限制 Desktop 范围时，使用 [`--profile`](#指定-desktop-数据目录)。
-
-### 3. 选择清理范围
-
-先选择满足需求的范围，再执行对应命令。
+第一步生成私有计划，审阅终端摘要和计划文件中的目标、排除原因、身份、空间预算及限制：
 
 ```sh
-# 重置已知登录状态
-node bin/reset.mjs --apply --yes
+node bin/reset.mjs --plan-out reset.plan.json
 ```
+
+第二步单独执行已经审阅的计划：
 
 ```sh
-# 同时清理已知账号功能缓存、遥测和退出标记
-node bin/reset.mjs --apply --yes --traces
+node bin/reset.mjs --execute reset.plan.json --yes --report reset.report.json
 ```
 
-共享钥匙串密钥默认保留。只有明确需要删除时才加上：
+**不要把这两条命令串成无人审阅的一键清理。** 计划文件不是“任意路径操作清单”：执行器会按当前规则重新发现并计算操作，只有范围、账号、组织、文件集合、哈希、权限和选项一致才继续。计划中的内容被改动或相关数据变化后，请重新预览。
 
-```sh
-node bin/reset.mjs --apply --yes --traces --include-keychain
-```
-
-`Claude Safe Storage / Claude Key` 是应用加密密钥，不是账号密码。删除它可能使**其他 Desktop profile** 的已加密凭据也失效，导致重新登录或授权。通常换账号无需删除这个密钥。
-
-### 4. 查看结果并重新登录
-
-检查报告中的模式、处理项目和 `historyUnchanged`。命令成功结束后，可打开 Claude 登录新账号。
-
-保留本地会话文件不等于把旧账号的聊天迁移到新账号；是否显示旧历史由 Claude 自身的账号规则决定。
-
-## 清理 thinking 并生成接手文档
-
-0.3.0 新增独立入口。用于换账号后不再向模型回放已知的旧 thinking，同时用可见对话帮助接手。**它会改写默认 Claude Code 正文文件，使用同一正文的其他 profile 也会受影响。** 不会改变组织身份、伪造签名或保证服务端无法关联账号。
-
-```sh
-# 默认只读：预览处理数量、思考块数量、跳过项及目标组织
-node bin/handoff.mjs
-
-# 生成接手文档，备份后清理 thinking，校验并关联本地索引
-node bin/handoff.mjs --apply --yes --report handoff.report.json
-
-# 显式选择：全部处理与校验成功后，删除本次备份以释放空间
-node bin/handoff.mjs --apply --yes --discard-backup --report handoff-final.report.json
-```
-
-复用恢复命令的 `--source PATH`（可重复）、`--target PATH`、`--org UUID`。另有 `--output-dir PATH`（默认 `./handoff-documents`）和 `--backup-dir PATH`（默认 `./handoff-backups`）。两者必须分开，且都在 Claude 数据目录之外。
-
-执行顺序：
-
-1. 预读目标账号、源索引和正文，确认文件格式及副本无歧义。
-2. 创建私有的逐会话 Markdown 文档和 `INDEX.md`。文档是**可见原文整理**，并非模型生成的记忆摘要，不推断任务完成状态；消息以代码块呈现，工具输入和结果带原角色标记。
-3. 将待改写的完整正文备份到客户端不会扫描的独立目录，生成 manifest。
-4. 移除所有已识别的 `message.content` 中的 `thinking` / `redacted_thinking` 块，连同块内签名；保留其他字段、工具调用/结果及 UUID 关联。纯思考行保留结构及空 content，避免破坏父子链；客户端兼容性仍需另行验证。
-5. 比较每一条记录去掉思考后的语义投影，回读哈希，确认可见记录无变化，再调用索引恢复。
-6. 只有显式指定 `--discard-backup`、没有未解决/跳过记录且最终校验成功，才删除**本次备份子目录**。文档与其他备份保留。
-
-受控正文写入失败会尝试还原本次已改写且未被其他进程更改的文件；索引恢复失败或进程被强制终止时，文档、备份和 manifest 保留用于诊断，不承诺跨文件事务。即使传入丢弃备份选项，失败也不会自动删备份。
-
-未识别的思考块布局会停止处理；正文缺失、为空或有不同副本会跳过并报告。**不要把部分处理成功理解为全机 thinking 已清空。** 旧思考不会转换成普通文本再次发送。文档包含原可见历史，可能有私人信息或可见凭据，分享前必须审阅；工具不会自动上传。
-
-此命令不消除组织绑定机制，也不保证消除所有模型兼容性提示。当前只用合成数据测试；你的实际对话仍需单独授权和客户端验收。完整说明见 [HANDOFF.md](docs/HANDOFF.md)。
-
-## 恢复本地 Code 对话
-
-换账号后，如果侧边栏为空但旧 `.jsonl` 正文还在，可以为目标账号重新建立本地 Code 索引。此功能**不会重置登录**，也不会自动恢复 Cowork 或普通云端聊天。
-
-### 预览与执行
-
-1. 在 Claude Desktop 中登录希望使用的新账号，进入 Code 一次，再完全退出客户端。
-2. 在工具目录运行预览，核对目标账号目录、计划数量、跳过原因和 thinking 检测结果。
-3. 确认范围后执行；成功后重新打开 Claude，检查列表和正文。
-
-```sh
-# 只预览，不写入索引或备份
-node bin/recover.mjs --report recovery-preview.report.json
-
-# 备份目标索引，新增缺失的会话记录
-node bin/recover.mjs --apply --yes --report recovery-result.report.json
-```
-
-| 恢复参数 | 说明 |
-| --- | --- |
-| `--source PATH` | 源 Desktop 目录，可重复传入；默认发现 `Claude` 和相邻 `Claude-*` |
-| `--target PATH` | 目标 Desktop 目录；默认 `~/Library/Application Support/Claude` |
-| `--org UUID` | 目标账号下已有的组织目录；发现多个组织时必须显式指定 |
-| `--backup-dir PATH` | 备份父目录；默认当前目录中的 `recovery-backups`，必须在 Claude 数据目录之外 |
-| `--apply --yes` | 显式执行；仅新增，不覆盖已有会话 |
-| `--report FILE` | 新建权限为 `0600` 的本地报告 |
-| `--help` | 查看恢复命令帮助 |
-
-`--target` 的 `config.json` 必须包含目标账号标识，且账号下已经有初始化的组织目录。该标识来自本地配置，不代表工具在线验证了当前身份。执行前请自行确认目标账号；工具不会替你登录、猜测组织或授予文件夹信任。
-
-### 恢复哪些数据
-
-- 从源目录读取本地 `local_*.json` Code 索引，与默认 `~/.claude/projects/<project>/<session-id>.jsonl` 主会话正文匹配。
-- 同一 CLI 会话只计划一次，已有目标记录优先；重复执行跳过已经存在的记录。
-- 正文缺失、为空、JSON 无法解析或存在内容不同的同名副本时跳过并报告。子智能体正文不会单独变成 Desktop 会话。
-- 保留标题、时间、归档状态及必要本地路径；工作目录缺失会报告，不擅自改路径。查看历史成功不代表可以继续在已丢失的目录中工作。
-- 只复制允许清单中的本地元数据，排除旧连接器、云端桥接、待执行动作等配置。恢复记录使用**手动权限，Remote Control 关闭**。
-- 原索引、正文和 thinking 块均不改写；恢复不会发起新对话、执行历史工具调用或修改旧凭据。
-
-### 跨组织 thinking 提示
-
-可能看到：`Claude can't use thinking from another organization`。
-
-这是历史推理块的兼容性提示，不能据此判断旧账号仍然登录。根据 [Anthropic preserved thinking 文档](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking#thinking-blocks-stay-with-the-account-that-produced-them)，部分模型的 thinking 绑定生成它的账号；跨组织发送时可能被 API 丢弃，请求仍可成功，但模型需要重新推理，可能增加延迟与 token 消耗。
-
-**`recover.mjs` 选择保留完整历史；`handoff.mjs` 是需要另行执行的正文转换。** 它统计 `thinking`、`redacted_thinking` 和带签名的块，不输出内容，不尝试解密签名、判断签名所属组织或重新签名。报告中的 `thinking.organizationCompatibility` 固定为 `not-verified`；检测到思考块只说明存在潜在兼容性限制，不证明每个块一定来自其他组织。
-
-即使索引恢复、正文显示和保护校验都通过，也不能承诺新账号能复用旧思考。`recover.mjs` 不会删除思考；需要去掉已知旧思考时，选择上面的显式 handoff 流程。`uiVerified` 始终由命令报告为 `false`，需要在客户端另行验收。
-
-### 备份、失败与报告
-
-执行前创建权限为 `0700` 的独立备份目录，保存目标目录原文件及 `manifest.json`。备份可能含私有会话信息，**不要提交到 GitHub 或上传 Pages**；默认目录已加入 `.gitignore`。
-
-受控写入失败时只尝试撤销本次新增的文件，原件和备份保留。强制结束进程、断电或撤销失败可能留下部分记录，不能当作完整事务；根据 manifest 的 `planned`、`created` 和 `status` 人工核对，不要整目录覆盖恢复后的新对话。
-
-报告包含 `planned`、`created`、`skipped`、`missingWorkingDirectories`、`originalsUnchanged`、`backupDirectory`、`thinking` 和 `uiVerified`。`created: 0` 可能意味着会话已存在或全部被跳过；应查看原因，而不是假定全部恢复。报告路径和会话标识属于本地私有信息。
-
-经验、实测边界和实现说明见 [本地对话恢复](docs/RECOVERY.md)。
+> 从 v0.3 升级：单独的 `--apply --yes` 已拒绝执行。可用 `--apply --plan FILE --yes` 作为新执行方式的别名。旧报告不能冒充 v0.4 计划。
 
 ## 命令参考
 
-以下选项属于账号清理命令；恢复参数见上一节。
+### 公共参数
+
+| 参数 | 作用 |
+| --- | --- |
+| `--plan-out FILE` | 保存完整计划；新文件、权限 `0600` |
+| `--execute FILE --yes` | 执行保存的计划，不能再追加范围或删除选项 |
+| `--report FILE` | 保存私有结果；已有文件时停止 |
+| `--backup-dir DIR` | 计划中的备份父目录，默认 `./operation-backups` |
+| `--discard-backup` | 写入计划：全部本地验证完成且无未解决候选项时，删除本批次备份 |
+| `--help` | 显示帮助 |
+
+不带 `--plan-out` 也可只预览，但要执行必须重新生成并保存计划。输入目录内部不能保存计划或报告。备份和文档目录必须在源数据之外，并使用不同目录树。
+
+### 账号清理
+
+```sh
+# 仅处理指定 Desktop，不处理默认 Code 配置
+node bin/reset.mjs --profile "$HOME/Library/Application Support/Claude" \
+  --desktop-only --plan-out desktop.plan.json
+
+# 同时选择已知功能/遥测缓存及某个 Code 配置目录
+node bin/reset.mjs --traces --code-dir "$HOME/.claude-work" \
+  --plan-out work.plan.json
+```
+
+`--profile`、`--code-dir` 可重复。不指定 Desktop 时发现 `Claude` 与相邻 `Claude-*`；不指定 Code 时选择默认 `~/.claude`。默认不会因为环境变量或发现 `.claude-*` 就自动扩大 Code 清理范围。
+
+- `--traces`：已知账号功能缓存、遥测和退出标记；不是磁盘缓存清理。
+- `--identity-records`：额外选择顶层 `userID`、`ant-did`、设备登记映射；默认保留。
+- `--include-keychain`：额外选择 `Claude Safe Storage / Claude Key`，并记录不可文件恢复的影响；默认只查询存在性。
+
+### 恢复和接手
+
+```sh
+node bin/recover.mjs --plan-out recover.plan.json
+node bin/recover.mjs --execute recover.plan.json --yes
+```
+
+```sh
+node bin/handoff.mjs --plan-out handoff.plan.json
+node bin/handoff.mjs --execute handoff.plan.json --yes
+```
+
+登录目标账号并进入 Code 一次，然后退出。目标必须有明确账号标识和初始化的组织目录；多个组织时用 `--org UUID` 选择。工具不替你登录，不授予文件夹信任。
+
+| 参数 | 作用 |
+| --- | --- |
+| `--source DIR` | Desktop 源目录，可重复；默认发现 `Claude*` |
+| `--target DIR` | 目标 Desktop 目录，默认 `Claude` |
+| `--org UUID` | 已存在的目标组织目录 |
+| `--code-dir DIR` | 正文所在的 Code 配置目录，可重复 |
+| `--session UUID` | 会话白名单，可重复；接受 Desktop ID（`local_…`）或 CLI ID |
+| `--exclude UUID` | 排除名单，可重复，优先于纳入 |
+| `--protect-since YYYY-MM-DD` | 保护该日期及以后的用户活动；时间未知也保护 |
+| `--time-zone ZONE` | 启用日期保护时必须明确指定，如 `Asia/Shanghai` |
+| `--baseline PRIOR_PLAN` | 保护基线后新建、正文/索引变化或 CLI 关联变化的会话 |
+| `--output-dir DIR` | handoff 文档父目录，默认 `./handoff-documents` |
+
+## 选择和保护会话
+
+先预览取得真实会话 ID，再选择，不要依赖同名标题：
+
+```sh
+node bin/handoff.mjs --session local_11111111-1111-4111-8111-111111111111 \
+  --exclude local_22222222-2222-4222-8222-222222222222 \
+  --protect-since 2026-11-02 --time-zone Asia/Shanghai \
+  --plan-out selected.plan.json
+```
+
+上述 ID 只是格式示例，必须换成自己的实际 ID。默认不猜测“今天”的时区或日期；未选日期参数时不会启用日期过滤。
+
+计划显示标题、Desktop/CLI ID、当前目标索引关联、路径、归档状态、最后用户活动、thinking 计数和选择理由。用户角色中的自动续接或系统注入记录也可能触发保护，因此采用保守规则。不能只用文件修改时间判断是否续聊。
+
+可以把先前的 v0.4 计划作为基线：
+
+```sh
+node bin/handoff.mjs --plan-out baseline.plan.json
+# 之后重新预览时，保护基线后变化的会话
+node bin/handoff.mjs --baseline baseline.plan.json --plan-out unchanged.plan.json
+```
+
+执行计划后出现新的会话或相关文件变化，会使计划过期，不会把新增数据偷偷加入执行范围。明确排除、日期保护和基线保护是已确定的范围决定；副本冲突、不可解析或缺失正文属于未解决项。
+
+## 多副本与续接
+
+| 情况 | 行为 |
+| --- | --- |
+| 单份正文 | 按规则处理 |
+| 多份内容完全相同 | 标为重复文件，同一个逻辑会话 |
+| 短本是长本的完整字节前缀 | 标为历史快照，以长本生成文档，各副本分别处理且保留各自可见内容 |
+| 双方都有独有内容 | 标为分叉，跳过，不自动合并或取舍 |
+| 同一 Desktop 会话出现不同 CLI ID | 默认保护；需明确选择某个 CLI ID |
+| 正文缺失、为空、格式未知 | 跳过并报告 |
+
+索引已存在时不覆盖。手动选择某个旧 CLI 日志，不会强制把当前索引改回旧日志。工作目录缺失会报告，不能保证继续运行；工具不猜测新路径。
+
+## 账号与身份边界
+
+| 类别 | 默认规则 |
+| --- | --- |
+| OAuth、`accountUuid`、`lastKnownAccountUuid`、已知设备信任字段 | reset 按明确顶层字段处理 |
+| 主 Cookie、配置 journal、默认或选定 Code `.credentials.json` | reset 备份后处理 |
+| `remote-control-state.json` 的身份映射 | reset 清空 identities，其余保留 |
+| Local Storage | 仅匹配 `https://claude.ai` / `app://localhost` 和允许清单；验证其他键值不变 |
+| `userID`、`ant-did`、设备登记文件 | 默认只审计，需 `--identity-records` |
+| `machineID`、硬件/访问组密钥 | 保留，不宣称已轮换底层身份 |
+| `Claude Safe Storage / Claude Key` | 仅存在性查询，需 `--include-keychain` 才删除 |
+| 常见 `Claude Code-credentials` 服务 | 只审计；定制命名及访问组未全面覆盖，不自动删除 |
+| 配置中 API key helper、认证环境变量 | 报告配置存在或变量名称，不记录值、不执行 helper、不修改 |
+| 缓存、遥测目录、外部浏览器 | 缓存位置存在性审计和覆盖说明，不新增自动清理 |
+
+v0.4 相比 v0.3 默认保留 `userID`，并增加顶层 `accountUuid` 的已知账号规则。未知键、项目设置、Skills/Hooks/MCP 等不因关键词匹配而删除。自定义 Code 目录下的已知配置/凭据可明确选择；自定义同名 sibling JSON 尚不自动编辑，报告中说明。
+
+钥匙串查询区分 `present`、`absent` 和 `unavailable`。权限错误不是不存在。共享加密密钥删除可能影响其他 profile，文件备份不能恢复该密钥；不解密或导出它。
+
+## 备份验证与恢复
+
+执行器先检查源及目标磁盘空间，建立权限为 `0700` 的本批次目录。所有待改写/删除的源文件先复制、逐文件回读验证内容及结构；全部通过后才生成并验证暂存结果。写入前再次检查原计划和所有输入，完成后比较受保护数据。
 
 ```text
-node bin/reset.mjs [options]
+operation-backups/run-<plan-id>/
+  journal.json       原计划、条目状态、哈希、验证结果和失败阶段
+  payload/           经过回读验证的原件
 ```
 
-| 选项 | 含义 |
-| --- | --- |
-| 无选项 | 检查默认规则，不修改原始 Claude 数据 |
-| `--apply` | 执行清理；必须同时传入 `--yes` |
-| `--yes` | 显式确认按所选规则清理；不会自动扩大清理范围 |
-| `--traces` | 加入已知功能缓存、遥测及退出标记；本身不触发写入 |
-| `--include-keychain` | 删除指定共享钥匙串项；必须与 `--apply` 一起使用 |
-| `--profile PATH` | 指定 Desktop 数据目录，可重复传入 |
-| `--report FILE` | 保存本地 JSON 报告，仅允许创建新文件 |
-| `--help` | 查看帮助 |
+默认保留备份。`--discard-backup` 需在生成计划时选择，仅在本批次全部检查成功且没有未解决候选项时删除该批次。它不等待真实模型/客户端验收；想先实际检查再决定时，不要使用该选项。失败不会自动清空备份，也不会自动覆盖新数据来回滚。
 
-### 指定 Desktop 数据目录
-
-未传入 `--profile` 时，工具在当前用户的 `~/Library/Application Support/` 下发现 `Claude` 和 `Claude-*` 目录，包括 `Claude-3p`。目录名称本身不能证明它由多账号工具创建。
+### 检查和恢复指定条目
 
 ```sh
-# 仅检查这个 Desktop 目录
-node bin/reset.mjs --profile "$HOME/Library/Application Support/Claude"
+node bin/backup.mjs --inspect /absolute/path/to/run-PLAN_ID
+node bin/backup.mjs --restore /absolute/path/to/run-PLAN_ID --entry 0 \
+  --plan-out restore.plan.json
+node bin/backup.mjs --execute restore.plan.json --yes
 ```
 
-```sh
-# 检查多个指定目录
-node bin/reset.mjs \
-  --profile "$HOME/Library/Application Support/Claude" \
-  --profile "$HOME/Library/Application Support/Claude-Work" \
-  --traces
-```
+替换为真实备份目录及条目编号。恢复前验证备份完整性，并保存当前状态；只恢复当前仍匹配原操作结果的条目。出现后续编辑会判为冲突，不提供盲目覆盖。恢复凭据可能重新登录旧账号，恢复 thinking 会带回旧思考。没有自动恢复钥匙串密钥的能力。
 
-`--profile` **只限制 Desktop 目录**。默认 Claude Code 配置及其配置备份仍在处理范围内；钥匙串密钥也不是单个 profile 专属。
+## 报告与失败
 
-自定义 `CLAUDE_CONFIG_DIR` 不会被自动发现或重置，也不能通过 `--profile` 指定。执行前应人工确认这类配置。
+- 计划记录路径、身份标识、标题、哈希和规则，不保存正文或配置值；仍不是匿名数据。
+- 成功报告区分操作完成、受保护数据验证、备份去留、文档位置以及未解决项。
+- `uiVerified`、`modelVerified` 始终为 false；文件验证不能替代实际产品兼容性验收。
+- `journal.json` 持续记录 `backing-up`、`staging`、`applying`、`complete` 或 `partial-or-stopped`，以及每个条目的进度。失败后先查看日志，不能把“有报告文件”理解为成功。
+- 退出码 0 表示当前命令完成，1 表示停止或失败。预览完成不代表已执行。
 
-### 保存报告
+流程不是跨文件事务，也不是抵御恶意并发写入的系统沙箱。强制结束、断电或应用在操作中重启，可能留下部分更改和暂存文件。不要盲目重跑旧计划或整目录恢复；先检查日志和恢复预览。
 
-```sh
-node bin/reset.mjs --traces --report before.report.json
-node bin/reset.mjs --apply --yes --traces --report after.report.json
-```
+## 隐私和限制
 
-文件以 `0600` 权限创建；已有同名文件时，命令会在清理前停止。报告可能包含本地路径和字段名，分享前请检查。
+保护范围包括所选 Desktop 的会话/笔记/工作区/IndexedDB/Session Storage，以及选定 Code 目录的 projects、sessions、history、file-history、uploads 和配置。所有相关输入结构、内容和权限参与计划校验；只有计划内目标允许变化。
 
-## 清理范围
+Local Storage 预览使用本机私有临时副本，源数据库不打开写入。受控退出会清理副本；强制终止仍可能留下临时文件。计划、报告、文档和备份只留在本机，默认路径加入 Git 忽略列表；不要公开分享。
 
-下表描述**执行清理时**的行为。默认检查只展示计划。
+handoff 采用逐行流式转换，单行超过 8 MiB 或 UTF-8/结构异常时拒绝转换。仅移除已识别的 `thinking` / `redacted_thinking`，其他字段语义和消息链保留。纯思考消息保留结构与空 content，仍需确认客户端版本兼容性。
 
-| 数据 | 重置登录 | 额外启用 `--traces` |
-| --- | --- | --- |
-| 已知 OAuth、账号标识和设备信任字段 | 从 JSON 配置中移除指定字段 | 相同 |
-| Desktop 主 Cookie 数据库及对应日志 | 删除 | 相同 |
-| `config.json.journal` | 删除，避免恢复旧配置状态 | 相同 |
-| `remote-control-state.json` 的 `identities` | 清空映射，保留其他字段 | 相同 |
-| 默认 Claude Code 的 `.credentials.json` | 如存在则删除 | 相同 |
-| 默认 Claude Code 配置及其配置备份 | 移除已知账号字段，保留项目等配置 | 额外移除已知功能缓存 |
-| Local Storage 的账号提示、同步归属、登录方式 | 按来源和键名精确删除 | 相同 |
-| Local Storage 的遥测、退出及部分认证界面标记 | 保留 | 按规则删除 |
-| 已知套餐用量文件、账号设备映射及功能缓存 | 保留 | 删除或清空 |
-| `Claude Safe Storage / Claude Key` 钥匙串项 | 仅查询存在性 | 仍保留，需单独传入 `--include-keychain` |
+接手文档是可见历史摘录，包含用户消息、回答及工具记录，不是模型推断的任务总结。历史中的私人信息、可见凭据和旧指令可能仍在；二进制附件不嵌入。
 
-Local Storage 规则只匹配 `https://claude.ai` 和 `app://localhost` 两种来源及明确的键名。其他来源、未知键、会话索引、草稿、会话结果和预设不在删除清单中。完整规则以 [`lib/core.mjs`](lib/core.mjs) 为准。
+[组织绑定的 thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking)不能通过改账号标识或伪造签名来转换。保留模式可能由服务端丢弃旧思考并重新推理；handoff 不会把隐藏思考改写成普通文本。任何模式都不保证“全机无痕”、设备不可关联、所有缓存已清空或所有模型请求成功。
 
-工具会检查以下默认 Claude Code 配置位置：
-
-```text
-~/.claude.json
-~/.claude/.claude.json
-~/.claude/backups/.claude.json.backup.*
-~/.claude/.credentials.json
-```
-
-不是所有记录都能用于登录。例如账号标识用于提示或归属，遥测 ID 用于统计，退出标记用于客户端状态协调。`--traces` 把减少这些残留作为可选操作，不能据此推断它们都是认证凭据。
-
-### 不会覆盖的范围
-
-- IndexedDB、Session Storage 的内容解析或选择性清理。
-- 未知账号字段、其他日志、会话内部的账号引用。
-- Safari、Chrome 等外部浏览器中的登录状态。
-- 系统环境变量、单独配置的 API key、企业 SSO 的完整认证链路。
-- 自定义 Claude Code 配置目录及未发现的 Desktop profile。
-- 云端聊天、服务器端 token、APFS 快照、备份和 SSD 上的数据恢复痕迹。
-
-因此，报告成功不应解释为“所有旧账号记录均已消失”或“所有登录方式都已失效”。
-
-## 会话保护与执行机制
-
-### 受校验的文件
-
-工具对以下已存在目录中的文件计算操作前后的 SHA-256，并比较文件集合及内容：
-
-| 位置 | 目录 |
-| --- | --- |
-| 每个选中的 Desktop 数据目录 | `claude-code-sessions`、`local-agent-mode-sessions`、`side-session-notes`、`scratch-workspaces`、`git-shadow`、`IndexedDB`、`Session Storage` |
-| 默认 `~/.claude/` | `projects`、`sessions`、`file-history`、`uploads` |
-
-Local Storage 另外按键值校验：允许清单外的每条记录保持原值，选中的记录删除后回读确认。JSON 配置仅移除选定字段，写入后回读验证。
-
-### 执行顺序
-
-1. 检查进程和路径，要求 Claude 保持退出。
-2. 解析目标配置，在临时副本中预读 Local Storage；记录受保护文件的校验值。
-3. 仅在显式执行模式下修改已知目标。
-4. 整理 LevelDB 的失效旧记录，验证保留记录；按选项处理钥匙串。
-5. 回读清理结果，再次校验受保护文件，输出报告。
-
-工具拒绝符号链接路径、无法解析的配置、数据库错误和无法完成的权限检查。它不会为继续执行而放宽这些检查。
-
-**验证不等于备份。** 多文件操作不是全局事务；中途失败时，之前已完成的删除不会自动撤销。工具也不会复制旧令牌用于自动回滚。数据库整理不能保证已删除内容无法通过快照或磁盘取证恢复。
-
-## 报告与退出状态
-
-报告以 JSON 输出到终端；指定 `--report` 时同时保存到本地文件。
-
-| 字段 | 如何理解 |
-| --- | --- |
-| `version` | 工具版本 |
-| `mode` | `audit` 为检查，`apply` 为执行 |
-| `traces` | 是否启用了扩展规则 |
-| `keychain` | 指定钥匙串项的 `present`、`absent` 或 `deleted` 状态 |
-| `changes` | 规则命中的配置与文件处理项目 |
-| `localStorage` | 每个 profile 命中的键名、保留记录数与检查结果 |
-| `protectedFiles` | 纳入会话保护校验的文件数量 |
-| `historyUnchanged` | 受校验的文件集合与内容是否一致 |
-| `limits` | 本次规则的覆盖限制 |
-
-检查模式中的 `historyUnchanged: true` 表示检查前后这些文件未变化，**不表示已经执行清理**。`localStorage` 的 `verified` 也不能替代对 `mode` 的判断。
-
-| 退出码 | 含义 |
-| --- | --- |
-| `0` | 帮助已输出，或所选操作及必要验证成功完成 |
-| `1` | 参数、平台、进程、权限、数据格式、操作或校验发生错误 |
-
-失败时错误写入标准错误，报告文件可能为空或未完整写入。不要仅根据文件存在判断清理成功；请结合退出码和终端错误。遇到保护校验失败时，停止使用 Claude 并检查本地数据。
-
-## 隐私与数据处理
-
-- 网页没有数据上传入口、第三方统计或外部脚本。
-- 安装会访问 Cloudflare Pages 和 npm；检查与清理代码不发送网络请求。
-- 不解密 Cookie 或钥匙串密钥；钥匙串默认只查询指定条目的存在性。配置会在本机内存中解析，正常 JSON 报告记录路径、键名和计数，不包含配置值。错误输出与报告仍应在分享前自行审阅。
-- 检查 LevelDB 时会临时复制整个数据库，其中可能包含敏感内容。副本位于本机权限为 `0700` 的临时目录，正常退出及受控错误处理时删除。
-- 强制终止、断电等情况可能留下临时目录，位于系统临时目录下，名称以 `claude-reset-` 开头。清理前应确认其来源及没有进程使用。
-- 本地报告会处理 UUID 脱敏，但路径、profile 名称和未知字段名仍可能泄露信息，不能当作完全匿名数据公开上传。
-
-## 常见问题
-
-### 为什么已经退出账号，还要检查本地状态？
-
-退出登录不一定会删除所有界面提示、账号归属和配置缓存。工具的作用是检查已知位置，再按明确范围清理；不是要求每次换账号都必须使用。
-
-### 为什么要单独处理钥匙串？
-
-`Claude Safe Storage` 是应用用于加密 Cookie 等数据的密钥，可能由多个 Desktop profile 共享。它与具体账号的密码或 token 不同，删除影响可能超出当前选择的目录，所以需要单独选择。
-
-### 保留会话后，新账号一定能看到旧对话吗？
-
-不能保证。工具保留本地文件，不修改会话归属，也不迁移云端聊天。新账号的显示和访问权限由 Claude 决定。
-
-### 可以只清理一个 Desktop profile 吗？
-
-可以通过 `--profile` 限制 Desktop 范围。但默认 Claude Code 配置仍会处理；选择删除钥匙串密钥时，其影响也可能跨 profile。当前没有单独关闭默认 Claude Code 处理的选项。
-
-### 再次运行会重复删除或报错吗？
-
-已删除的目标会跳过，已清理的字段不会再次命中。执行模式仍会整理 Local Storage 数据库，因此不保证数据库文件的物理字节保持不变；保留记录的逻辑值会重新校验。
-
-### 提示 Claude 正在运行，或者无法检查进程怎么办？
-
-完全退出 Desktop、Code 和相关任务后重试。如果运行在限制进程访问的沙箱中，请在正常 macOS 终端中执行。不要删除检查逻辑来强行继续。
-
-### 提示配置损坏、符号链接或钥匙串访问失败怎么办？
-
-先确认目录是否正确、文件是否由其他进程写入，以及系统访问权限。工具会停止，而不会猜测数据格式或跟随链接扩大范围。反馈问题时可提供脱敏后的错误和版本信息。
-
-## 开发与部署
-
-从仓库根目录执行：
+## 开发与贡献
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
@@ -402,59 +250,36 @@ npm test
 npm run build:site
 ```
 
-合成数据测试覆盖只读检查不改动原库、精确删除、会话与草稿保护、配置备份、重复执行、异常 JSON、符号链接、钥匙串选项、UTF-16 键名和临时副本清理，不操作开发者的真实账号。
+测试使用临时目录与合成数据，覆盖计划注入/过期、空间和备份故障、恢复冲突、源数据保护、50 条会话选择、多副本、日期时区、CLI 续接、thinking、网页命令和资源边界。GitHub CI 使用 macOS、Node.js 22。
 
-GitHub Actions 在 macOS 与 Node.js 22 上运行测试并构建下载包。初版还验证了线上 HTTP 内容、下载包校验和独立目录中的安装流程；浏览器视觉与交互未验证。
-
-### 项目结构
+资源测试在 128 MiB V8 堆限制下处理约 32 MiB 和 160 MiB 合成历史，要求大文件超过堆上限仍成功且 RSS 增长受限；这不是对所有硬件与记录形态的性能保证。
 
 ```text
-bin/reset.mjs          命令行入口、参数及报告输出
-lib/core.mjs           发现、规则、清理与保护校验
-bin/recover.mjs        本地 Code 会话恢复命令
-lib/recovery.mjs       预览、去重、备份、thinking 检测与恢复
-test/                 清理与恢复的合成数据测试
-scripts/build-site.mjs 下载包、校验清单和安装脚本生成
-site/                 静态网页与生成的下载文件
-docs/LESSONS.md        原理、判断边界及经验
+lib/planner.mjs       规则生成、会话选择、计划保存与过期校验
+lib/engine.mjs        备份、暂存、执行日志、恢复预览与执行
+lib/safety.mjs        路径、哈希、空间预算、私有复制和原子写入
+lib/platform.mjs      进程与父进程检查、钥匙串状态
+lib/transcripts.mjs   流式转换、用户活动和副本分类
+lib/core.mjs          账号及 Local Storage 规则
+lib/recovery.mjs      会话索引结构
+lib/cli.mjs           所有命令的统一参数入口
 ```
 
-`site/downloads/` 是构建产物，不提交到 Git。构建生成工具包、`SHA256SUMS` 和内置包哈希的 `install.sh`。
+### 部署自己的 fork
 
-### Cloudflare Pages
-
-使用已登录、具有对应项目权限的 Wrangler 4 部署：
+修改 `wrangler.jsonc` 中的项目名，以及 `scripts/build-site.mjs` 的下载域名，再构建和部署到自己的 Pages 项目：
 
 ```sh
 npm run build:site
-wrangler pages deploy site --project-name claude-account-reset --branch main
+wrangler pages deploy site --project-name YOUR_PROJECT --branch main
 ```
 
-仓库的 `wrangler.jsonc` 与安装脚本生成器配置了本项目名称和生产下载域名。部署自己的 fork 时，需要先调整项目名称与生成器中的下载地址，再构建。GitHub 测试通过不会自动部署网页。
+GitHub CI 不自动部署。`site/downloads/` 为构建产物，不提交。下载包校验能检查完整性，不证明来源可信；请从可信仓库和域名获取。
 
-恢复测试另外覆盖跨账号索引重建、重复运行、目标冲突、组织歧义、正文缺失、部分写入回退、thinking 统计与原始正文保留。新版工具只使用合成数据验收，未在真实账号上再次执行恢复。
+### 问题与贡献
 
-## 参与贡献
+提交问题时提供版本、参数、预览/执行阶段、脱敏错误及可复现的合成结构。不要上传真实正文、Cookie、密钥、未审阅报告或备份。
 
-欢迎提交问题、兼容性证据和范围明确的改进。
+新增规则需明确来源与影响，验证选中数据正确处理、其他数据保持不变。不要扩大白名单或隐藏失败来使测试通过。贡献前运行测试，涉及网站/分发时再构建下载包。
 
-提交 Issue 时，请包含：
-
-- macOS、Node.js、Claude 和工具版本。
-- 所用参数、期望行为和实际错误；说明是检查模式还是执行模式。
-- profile 是否使用自定义路径、符号链接或自定义 `CLAUDE_CONFIG_DIR`。
-- 能复现问题的脱敏结构或合成数据。
-
-**不要上传真实凭据、Cookie 数据库、钥匙串导出、会话内容或未经审阅的完整报告。** 凭据一旦泄露，应先通过相应服务撤销或轮换。
-
-提交 Pull Request 时，请保持删除规则具体、可解释：新增字段应说明用途和证据，并用合成数据验证目标被移除、无关数据被保留。不要为通过测试而放宽保护检查。提交前运行 `npm test`；涉及网页或下载流程时同时运行 `npm run build:site`。
-
-新增 handoff 测试覆盖全思考块移除、可见记录与工具关联不变、只读预览、私有备份、成功后限定删除备份、失败保留和未知布局拒绝。
-
-## 许可证与参考
-
-项目采用 [MIT License](LICENSE)。
-
-隔离范围分析参考了 [MultiClaude](https://github.com/QuentinCar0n/multiclaude) 的源码：Desktop 使用 `--user-data-dir`，Claude Code 使用 `CLAUDE_CONFIG_DIR`。这些实现有助于定位存储范围，但不是 Claude 所有认证机制的完整规范。本项目没有复制其 Swift 代码，不依赖安装 MultiClaude。
-
-更多判断过程见 [原理与经验](docs/LESSONS.md)。
+本项目采用 [MIT License](LICENSE)。隔离分析参考 [MultiClaude](https://github.com/QuentinCar0n/multiclaude)，备份流程比较参考 [claude-ban-clean](https://github.com/Pluviobyte/claude-ban-clean)；本版自行实现，没有复制其清理代码。更多记录见 [LESSONS.md](docs/LESSONS.md)。
