@@ -1,6 +1,6 @@
 {
   "name": "claude-account-reset",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Local macOS Claude account reset with conversation preservation checks",
   "type": "module",
   "private": true,

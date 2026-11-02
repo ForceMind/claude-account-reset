@@ -9,13 +9,14 @@
 
 [网页与下载](https://claude-account-reset.pages.dev/) · [安全机制](docs/SAFETY.md) · [恢复经验](docs/RECOVERY.md) · [接手文档](docs/HANDOFF.md) · [反馈](https://github.com/ForceMind/claude-account-reset/issues)
 
-**v0.4.0 是早期工具，采用“保存计划 → 审阅 → 校验备份 → 执行”的流程。** 未传执行参数时只预览原始数据。计划过期、目标不明确、备份不一致或空间不足时停止。
+**v0.4.1 是早期工具，采用“保存计划 → 审阅 → 校验备份 → 执行”的流程。** 未传执行参数时只预览原始数据。计划过期、目标不明确、备份不一致或空间不足时停止。
 
 独立社区项目，与 Anthropic 无隶属关系。不能解除账号限制、保证设备匿名、迁移云端所有权或保证所有 Claude 版本兼容。最初规则基于 Desktop 4.29.0；新版实现使用合成数据验证，未在用户真实账号上再次执行，也未进行真实模型续聊或浏览器验收。
 
 ## 目录
 
 - [选择入口](#选择入口)
+- [交给 AI 使用](#交给-ai-使用)
 - [安装与快速开始](#安装与快速开始)
 - [命令参考](#命令参考)
 - [选择和保护会话](#选择和保护会话)
@@ -37,6 +38,22 @@
 
 缓存目录、外部浏览器、硬件设备密钥不是本版自动清理目标。Cowork 与普通云端聊天暂不支持自动恢复。
 
+## 交给 AI 使用
+
+不会运行脚本时，可下载[完整 AI 工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.1.tar.gz)，解压后，把**这个文件夹的本机路径**交给有本地文件和终端能力的 AI：
+
+```text
+请阅读这个文件夹中的 SKILL.md，按里面的流程帮助我使用工具。
+先问清我的目标，只生成检查计划，解释会改什么、哪些会话会保留。
+未经我确认，不要执行清理、恢复、thinking 改写或删除备份。
+```
+
+不需要先运行 `install.sh`。AI 可在解压目录中检查运行环境、安装锁定依赖、生成计划，再把影响解释给你；执行范围明确获授权后才继续。需要 Node.js 22+。纯网页聊天无法直接操作 Mac，需使用有本机执行能力的代理。
+
+仓库根目录的 [SKILL.md](SKILL.md) 是入口，[agents/openai.yaml](agents/openai.yaml) 提供技能列表的显示信息。支持技能发现的宿主可按其规则把**整个文件夹**加入技能目录，再使用 `$claude-account-reset`；只复制 SKILL.md 会缺失脚本、锁文件和参考说明。未安装为全局技能，也可以直接让 AI 阅读本目录入口。
+
+如果代理就是正在运行的 Claude Code，进程保护会拒绝本机操作；换用独立代理或普通终端，不绕过检查。Skill 不是远程清理服务，不自动上传本机资料。默认先预览，已有明确且仍适用的同等范围授权可沿用。
+
 ## 安装与快速开始
 
 需要 **macOS、Node.js 22+ 和 npm**；从源码安装另需 Git。以自己的用户运行，不使用 `sudo`。操作期间完全退出 Claude Desktop、Code 及其后台任务。
@@ -47,10 +64,10 @@
 
 ```sh
 bash install.sh
-cd claude-account-reset-0.4.0
+cd claude-account-reset-0.4.1
 ```
 
-脚本新建版本目录，下载并校验工具包，按锁文件安装依赖。已有同名目录时停止。安装不扫描或修改 Claude 数据，只打印预览命令。也可下载[工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.0.tar.gz)与 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)自行校验。
+脚本新建版本目录，下载并校验工具包，按锁文件安装依赖。已有同名目录时停止。安装不扫描或修改 Claude 数据，只打印预览命令。也可下载[工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.1.tar.gz)与 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)自行校验。
 
 ### 从源码安装
 
