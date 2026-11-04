@@ -1,6 +1,6 @@
 {
   "name": "claude-account-reset",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Local macOS Claude account reset with conversation preservation checks",
   "type": "module",
   "private": true,
@@ -20,9 +20,30 @@
     "audit": "node bin/reset.mjs",
     "recover": "node bin/recover.mjs",
     "handoff": "node bin/handoff.mjs",
-    "backup": "node bin/backup.mjs"
+    "backup": "node bin/backup.mjs",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:start": "npm run desktop:build && electron .",
+    "desktop:demo": "npm run desktop:build && electron . --demo",
+    "desktop:package": "npm run desktop:build && electron-forge package --platform=darwin",
+    "desktop:make": "npm run desktop:build && electron-forge make --platform=darwin && node scripts/make-dmg.mjs"
   },
   "dependencies": {
     "classic-level": "3.0.0"
+  },
+  "main": "desktop/main.mjs",
+  "productName": "Claude Account Reset",
+  "config": {
+    "forge": "./forge.config.cjs"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-zip": "8.0.1",
+    "@electron-forge/plugin-auto-unpack-natives": "8.0.1",
+    "electron": "45.2.2",
+    "typescript": "7.0.2"
+  },
+  "overrides": {
+    "glob": "14.0.3",
+    "minimatch": "11.0.4"
   }
 }

@@ -2,6 +2,8 @@
 
 **在 macOS 上审阅、清理已知 Claude 账号状态，恢复本地 Code 列表，或生成去掉旧 thinking 的接手文档。**
 
+本分支正在交付 **v0.5.0 macOS 图形客户端候选版**。普通用户双击客户端，通过目录选择、计划审阅、原生确认、备份与结果页面完成操作，无需安装 Node 或运行脚本。当前图形入口覆盖登录状态清理及本客户端备份的文件恢复；高级历史维护与 Windows 入口仍属后续迭代。说明见 [桌面客户端](docs/DESKTOP.md)。下方网页链接对应此前公开的 v0.4.1 CLI/Skill 版本，不代表图形候选版已公开发布。
+
 [![Verify](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml/badge.svg)](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml)
 ![macOS](https://img.shields.io/badge/platform-macOS-black)
 ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-43853d)

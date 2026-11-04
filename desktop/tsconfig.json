@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ES2022", "moduleDetection": "legacy", "lib": ["ES2022", "DOM"],
+    "strict": true, "outDir": "dist", "rootDir": "ui", "skipLibCheck": true, "types": []
+  },
+  "include": ["ui/renderer.ts"]
+}

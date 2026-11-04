@@ -8,3 +8,6 @@ handoff-documents/
 handoff-backups/
 operation-backups/
 *.plan.json
+
+desktop/dist/
+out/
