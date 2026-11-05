@@ -1,4 +1,4 @@
 interface:
-  display_name: "Claude 账号与会话维护"
-  short_description: "帮助检查 Claude 登录、恢复本地 Code 会话并安全生成接手文档"
-  default_prompt: "使用 $claude-account-reset 帮我先检查本机 Claude 状态，列出计划和影响；未经我确认不要修改数据。"
+  display_name: "Claude 会话与环境管理"
+  short_description: "帮助管理本地 Claude 会话、查看环境配置并安全导出备份与维护账号"
+  default_prompt: "使用 $claude-account-reset 帮我明确目标和资料范围，优先使用图形只读入口查看会话或环境；修改原件前先解释计划并征得确认。"

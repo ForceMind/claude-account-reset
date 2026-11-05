@@ -61,15 +61,15 @@
 
 ## 交给 AI 使用
 
-不会运行脚本时，可下载[完整 AI 工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.6.0.tar.gz)，解压后，把**这个文件夹的本机路径**交给有本地文件和终端能力的 AI：
+希望由本机 AI 协助时，可下载[完整 AI 工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.6.0.tar.gz)，解压后，把**这个文件夹的本机路径**交给有本地文件和终端能力的 AI：
 
 ```text
-请阅读这个文件夹中的 SKILL.md，按里面的流程帮助我使用工具。
-先问清我的目标，只生成检查计划，解释会改什么、哪些会话会保留。
-未经我确认，不要执行清理、恢复、thinking 改写或删除备份。
+请阅读这个文件夹中的 SKILL.md，先明确我的目标和资料范围。
+查看会话和环境时优先使用图形只读入口，不要先运行清理命令。
+涉及修改原件时，先解释计划与影响；未经我确认不要执行。
 ```
 
-不需要先运行 `install.sh`。AI 可在解压目录中检查运行环境、安装锁定依赖、生成计划，再把影响解释给你；执行范围明确获授权后才继续。需要 Node.js 22+。纯网页聊天无法直接操作 Mac，需使用有本机执行能力的代理。
+不需要先运行 `install.sh`。图形客户端不需要 Node.js。仅使用高级 CLI 时，AI 可在解压目录中检查 Node.js 22+、安装生产依赖、生成计划并解释影响；执行范围明确获授权后才继续。纯网页聊天无法直接操作 Mac，需使用有本机执行能力的代理。
 
 仓库根目录的 [SKILL.md](SKILL.md) 是入口，[agents/openai.yaml](agents/openai.yaml) 提供技能列表的显示信息。支持技能发现的宿主可按其规则把**整个文件夹**加入技能目录，再使用 `$claude-account-reset`；只复制 SKILL.md 会缺失脚本、锁文件和参考说明。未安装为全局技能，也可以直接让 AI 阅读本目录入口。
 

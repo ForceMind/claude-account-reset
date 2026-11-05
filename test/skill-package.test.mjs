@@ -15,7 +15,7 @@ test('download package is a complete Skill with working reference and command gr
  assert.equal(names.some(n=>/\.(jsonl|sqlite|dmg|zip)$|\.(report|plan)\.json$|(^|\/)(payload|operation-backups|work)\//.test(n)),false,'Private/generated files entered the source archive');
  const skill=execFileSync('tar',['-xOf',archive,'SKILL.md'],{cwd:root,encoding:'utf8'});
  assert.match(skill,/^---\nname: claude-account-reset\ndescription: .+\n---\n/);
- for(const link of skill.matchAll(/\]\(([^)]+)\)/g))assert.ok(names.includes(link[1]),`Missing packaged reference: ${link[1]}`);
+ for(const link of skill.matchAll(/\]\(([^)]+)\)/g)){if(URL.canParse(link[1]))assert.equal(new URL(link[1]).protocol,'https:');else assert.ok(names.includes(link[1]),`Missing packaged reference: ${link[1]}`);}
  for(const name of names.filter(n=>n.endsWith('.mjs'))){const source=execFileSync('tar',['-xOf',archive,name],{cwd:root,encoding:'utf8'});for(const match of source.matchAll(/from ['"]([.][^'"]+)['"]/g)){const resolved=new URL(match[1],new URL(name,'file:///')).pathname.slice(1);assert.ok(names.includes(resolved),`Missing module: ${resolved}`);}}
  assert.deepEqual(parseCLI('reset',['--plan-out','account-review.plan.json']).options,{});
  assert.throws(()=>parseCLI('reset',['--apply','--yes']),/saved plan/);
