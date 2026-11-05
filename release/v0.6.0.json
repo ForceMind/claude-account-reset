@@ -1,0 +1,14 @@
+{
+  "version": "0.6.0",
+  "tag": "v0.6.0",
+  "repository": "ForceMind/claude-account-reset",
+  "applicationSourceCommit": "03465141f93dfa3c29fd969e197a552706f2160d",
+  "platform": "macOS",
+  "architecture": "arm64",
+  "channel": "preview",
+  "signature": { "adHoc": true, "developerId": false, "notarized": false },
+  "artifacts": [
+    { "name": "Claude-Account-Reset-0.6.0-macOS-arm64.dmg", "bytes": 143023005, "sha256": "c1a5bb9f1ec9b2fb3f232f0c8be943cdcff621472add94fe1d1badaadd1cb1a3" },
+    { "name": "Claude-Account-Reset-0.6.0-macOS-arm64.zip", "bytes": 130563090, "sha256": "9804b4dba6d495a1873f4b0884e4dd95dede26a7118c33761a8372acba83e79a" }
+  ]
+}

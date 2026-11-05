@@ -11,3 +11,14 @@ operation-backups/
 
 desktop/dist/
 out/
+
+# Private data and binary release assets never belong in source history
+*.dmg
+*.zip
+*.jsonl
+*.sqlite*
+.env
+.env.*
+*.pem
+*.key
+.credentials*

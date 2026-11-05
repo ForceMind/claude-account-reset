@@ -5,14 +5,20 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json')));
+const release = JSON.parse(await fs.readFile(path.join(root, 'release', `v${pkg.version}.json`)));
+if(release.version!==pkg.version||release.repository!=='ForceMind/claude-account-reset'||release.tag!==`v${pkg.version}`||release.artifacts.some(a=>!/^[A-Za-z0-9.-]+$/.test(a.name)||!Number.isSafeInteger(a.bytes)||a.bytes<=0||!/^[a-f0-9]{64}$/.test(a.sha256)))throw Error('Invalid public release manifest');
 const out = path.join(root, 'site/downloads'); await fs.mkdir(out, { recursive: true });
 const name = `claude-account-reset-${pkg.version}.tar.gz`;
 for (const stale of await fs.readdir(out)) {
   if (/^claude-account-reset-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/.test(stale) && stale !== name) await fs.unlink(path.join(out, stale));
 }
-execFileSync('tar', ['-czf', path.join(out, name), 'package.json', 'package-lock.json', 'SKILL.md', 'agents', 'bin', 'lib', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md', 'docs/HANDOFF.md', 'docs/SAFETY.md'], { cwd: root });
+execFileSync('tar', ['--uid','0','--gid','0','--uname','root','--gname','root','--exclude=desktop/dist', '--exclude=.DS_Store', '-czf', path.join(out, name), 'package.json', 'package-lock.json', 'forge.config.cjs', 'SKILL.md', 'agents', 'bin', 'lib', 'desktop', 'scripts', 'test', 'release', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md', 'docs/HANDOFF.md', 'docs/SAFETY.md','docs/DESKTOP.md'], { cwd: root,env:{...process.env,COPYFILE_DISABLE:'1'} });
 const sha = createHash('sha256').update(await fs.readFile(path.join(out, name))).digest('hex');
-await fs.writeFile(path.join(out, 'SHA256SUMS'), `${sha}  ${name}\n`);
+const artifacts=[...release.artifacts,{name,bytes:(await fs.stat(path.join(out,name))).size,sha256:sha}];
+await fs.writeFile(path.join(out, 'SHA256SUMS'), artifacts.map(a=>`${a.sha256}  ${a.name}`).join('\n')+'\n');
+await fs.writeFile(path.join(out,`release-v${pkg.version}.json`),JSON.stringify({...release,artifacts},null,2)+'\n');
+const base=`https://github.com/${release.repository}/releases/download/${release.tag}/`;
+await fs.writeFile(path.join(root,'site/_redirects'),release.artifacts.map(a=>`/downloads/${a.name} ${base}${a.name} 302`).join('\n')+'\n');
 await fs.writeFile(path.join(out, 'install.sh'), `#!/bin/bash
 set -euo pipefail
 # Download first, inspect this script, then run: bash install.sh

@@ -1,22 +1,39 @@
 # Claude Account Reset
 
-**在 macOS 上审阅、清理已知 Claude 账号状态，恢复本地 Code 列表，或生成去掉旧 thinking 的接手文档。**
-
-本分支交付 **v0.6.0 macOS 图形客户端候选版**。双击即可浏览、筛选和预览本地 Code 会话，保存本工具内的收藏与备注，查看只读环境概览，导出可见历史文档或备份原始正文。既有账号清理和文件恢复流程保留；无需安装 Node 或输入命令。账号切换、Windows、写入型历史维护图形入口仍属后续迭代。说明见 [桌面客户端](docs/DESKTOP.md)。下方网页链接对应此前公开的 v0.4.1 CLI/Skill 版本，不代表图形候选版已公开发布。
+**在 Mac 本地管理 Claude Code 会话、看懂环境配置，并安全导出、备份或维护账号状态。**
 
 [![Verify](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml/badge.svg)](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml)
-![macOS](https://img.shields.io/badge/platform-macOS-black)
-![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-43853d)
+![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple_Silicon-325c4b)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[网页与下载](https://claude-account-reset.pages.dev/) · [安全机制](docs/SAFETY.md) · [恢复经验](docs/RECOVERY.md) · [接手文档](docs/HANDOFF.md) · [反馈](https://github.com/ForceMind/claude-account-reset/issues)
+[下载 DMG](https://github.com/ForceMind/claude-account-reset/releases/download/v0.6.0/Claude-Account-Reset-0.6.0-macOS-arm64.dmg) · [下载 ZIP](https://github.com/ForceMind/claude-account-reset/releases/download/v0.6.0/Claude-Account-Reset-0.6.0-macOS-arm64.zip) · [SHA-256 校验清单](https://claude-account-reset.pages.dev/downloads/SHA256SUMS) · [网站](https://claude-account-reset.pages.dev/) · [Release](https://github.com/ForceMind/claude-account-reset/releases/tag/v0.6.0)
 
-**v0.4.1 是早期工具，采用“保存计划 → 审阅 → 校验备份 → 执行”的流程。** 未传执行参数时只预览原始数据。计划过期、目标不明确、备份不一致或空间不足时停止。
+## 桌面客户端
 
-独立社区项目，与 Anthropic 无隶属关系。不能解除账号限制、保证设备匿名、迁移云端所有权或保证所有 Claude 版本兼容。最初规则基于 Desktop 4.29.0；新版实现使用合成数据验证，未在用户真实账号上再次执行，也未进行真实模型续聊或浏览器验收。
+当前版本为 **v0.6.0 桌面预览版**，支持 macOS Apple Silicon（arm64）。普通使用不需要安装 Node.js 或输入命令。应用有 ad-hoc 签名，尚未完成 Developer ID 分发签名和公证，可能出现系统安全提示；Intel 和 Windows 尚未验证。
+
+1. 下载并打开 DMG，将应用拖入“应用程序”；也可解压 ZIP 后打开应用。
+2. 点击识别或手动选择资料目录，再主动读取会话或环境。启动本身不会扫描 Claude 数据。
+3. 搜索和预览记录，按需收藏备注、导出可见文档或备份原始正文。额外维护操作先审阅计划，备份校验后才执行。
+
+| 功能 | 行为与边界 |
+| --- | --- |
+| 会话管理 | 标题/项目筛选、归档/异常/收藏筛选、分页预览；支持本地 Desktop Code 索引及 Code 主会话正文 |
+| 多副本检查 | 区分相同、前缀快照、分叉与缺失；不自动合并或删除 |
+| 收藏与备注 | 只写本工具的私有存储，不改 Claude 原标题、归档标记或正文 |
+| 环境概览 | 显示选定配置来源、模型和连接候选、冲突与未知项；凭据值及 URL 密码不展示，不执行 MCP/helper |
+| 导出与备份 | Markdown 包含完整可见文本；资料备份保留原始正文与 thinking，并生成校验清单 |
+| 账号维护 | 默认保留会话与 thinking；身份字段、共享钥匙串分别选择，图形客户端不自动删除备份 |
+
+账号切换、云端聊天和未知 Cowork 格式不在本版支持范围。环境候选不代表已验证的在线身份或实际请求路径。会话资料备份不包含项目、外部附件或云端资产，也不会自动导入或替换 Claude 数据。
+
+独立社区项目，与 Anthropic 无隶属关系。不能解除账号限制、保证设备匿名或迁移云端所有权。v0.6.0 的验证使用合成资料：69 项测试、本工具原生桌面演示、包内后台/原生模块及导出备份回读；未使用用户真实账号或会话，未验证真实 Claude 续聊，未运行浏览器验收。最初账号规则依据 Desktop 4.29.0，新版 Claude 格式仍需单独核实。
+
+[桌面使用与边界](docs/DESKTOP.md) · [安全机制](docs/SAFETY.md) · [恢复经验](docs/RECOVERY.md) · [接手文档](docs/HANDOFF.md) · [反馈问题](https://github.com/ForceMind/claude-account-reset/issues)
 
 ## 目录
 
+- [桌面客户端](#桌面客户端)
 - [选择入口](#选择入口)
 - [交给 AI 使用](#交给-ai-使用)
 - [安装与快速开始](#安装与快速开始)
@@ -31,6 +48,8 @@
 
 ## 选择入口
 
+普通用户优先使用上方桌面客户端。以下命令保留给高级维护或由本机 AI 在明确授权下调用；不会代替账号切换。
+
 | 命令 | 用途 | 对正文的影响 |
 | --- | --- | --- |
 | `bin/reset.mjs` | 重置明确的登录字段、Cookie 和账号缓存 | 不改写对话正文 |
@@ -42,7 +61,7 @@
 
 ## 交给 AI 使用
 
-不会运行脚本时，可下载[完整 AI 工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.1.tar.gz)，解压后，把**这个文件夹的本机路径**交给有本地文件和终端能力的 AI：
+不会运行脚本时，可下载[完整 AI 工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.6.0.tar.gz)，解压后，把**这个文件夹的本机路径**交给有本地文件和终端能力的 AI：
 
 ```text
 请阅读这个文件夹中的 SKILL.md，按里面的流程帮助我使用工具。
@@ -58,6 +77,8 @@
 
 ## 安装与快速开始
 
+本节用于高级 CLI/AI 工具包；桌面安装包不需要下面的运行环境。
+
 需要 **macOS、Node.js 22+ 和 npm**；从源码安装另需 Git。以自己的用户运行，不使用 `sudo`。操作期间完全退出 Claude Desktop、Code 及其后台任务。
 
 ### 网页下载
@@ -66,10 +87,10 @@
 
 ```sh
 bash install.sh
-cd claude-account-reset-0.4.1
+cd claude-account-reset-0.6.0
 ```
 
-脚本新建版本目录，下载并校验工具包，按锁文件安装依赖。已有同名目录时停止。安装不扫描或修改 Claude 数据，只打印预览命令。也可下载[工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.4.1.tar.gz)与 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)自行校验。
+脚本新建版本目录，下载并校验工具包，按锁文件安装依赖。已有同名目录时停止。安装不扫描或修改 Claude 数据，只打印预览命令。也可下载[工具包](https://claude-account-reset.pages.dev/downloads/claude-account-reset-0.6.0.tar.gz)与 [SHA256SUMS](https://claude-account-reset.pages.dev/downloads/SHA256SUMS)自行校验。
 
 ### 从源码安装
 
@@ -97,7 +118,7 @@ node bin/reset.mjs --execute reset.plan.json --yes --report reset.report.json
 
 **不要把这两条命令串成无人审阅的一键清理。** 计划文件不是“任意路径操作清单”：执行器会按当前规则重新发现并计算操作，只有范围、账号、组织、文件集合、哈希、权限和选项一致才继续。计划中的内容被改动或相关数据变化后，请重新预览。
 
-> 从 v0.3 升级：单独的 `--apply --yes` 已拒绝执行。可用 `--apply --plan FILE --yes` 作为新执行方式的别名。旧报告不能冒充 v0.4 计划。
+> 从 v0.3 升级：单独的 `--apply --yes` 已拒绝执行。可用 `--apply --plan FILE --yes` 作为新执行方式的别名。旧报告不能冒充执行计划；不兼容版本的计划必须重新生成。
 
 ## 命令参考
 
@@ -174,7 +195,7 @@ node bin/handoff.mjs --session local_11111111-1111-4111-8111-111111111111 \
 
 计划显示标题、Desktop/CLI ID、当前目标索引关联、路径、归档状态、最后用户活动、thinking 计数和选择理由。用户角色中的自动续接或系统注入记录也可能触发保护，因此采用保守规则。不能只用文件修改时间判断是否续聊。
 
-可以把先前的 v0.4 计划作为基线：
+可以把先前同一工具版本生成的计划作为基线；跨版本需重新检查：
 
 ```sh
 node bin/handoff.mjs --plan-out baseline.plan.json
@@ -243,7 +264,7 @@ node bin/backup.mjs --execute restore.plan.json --yes
 
 - 计划记录路径、身份标识、标题、哈希和规则，不保存正文或配置值；仍不是匿名数据。
 - 成功报告区分操作完成、受保护数据验证、备份去留、文档位置以及未解决项。
-- `uiVerified`、`modelVerified` 始终为 false；文件验证不能替代实际产品兼容性验收。
+- CLI 报告中的 `uiVerified`、`modelVerified` 指真实 Claude 界面和模型续聊，仍为 false；本工具的合成资料桌面验收单独记录，不能替代 Claude 产品兼容性验收。
 - `journal.json` 持续记录 `backing-up`、`staging`、`applying`、`complete` 或 `partial-or-stopped`，以及每个条目的进度。失败后先查看日志，不能把“有报告文件”理解为成功。
 - 退出码 0 表示当前命令完成，1 表示停止或失败。预览完成不代表已执行。
 
@@ -293,7 +314,7 @@ npm run build:site
 wrangler pages deploy site --project-name YOUR_PROJECT --branch main
 ```
 
-GitHub CI 不自动部署。`site/downloads/` 为构建产物，不提交。下载包校验能检查完整性，不证明来源可信；请从可信仓库和域名获取。
+GitHub CI 不自动部署。`site/downloads/` 为构建产物，不提交。桌面大文件存放于 GitHub Release；Pages 下载别名通过 `_redirects` 跳转，避免超过单文件 25 MiB 限制。公开发布清单见 `release/v0.6.0.json`，不包含机器路径或私人报告。下载包校验能检查完整性，不证明来源可信；请从可信仓库和域名获取。
 
 ### 问题与贡献
 

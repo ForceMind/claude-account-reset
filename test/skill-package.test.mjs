@@ -11,6 +11,8 @@ test('download package is a complete Skill with working reference and command gr
  const archive=`site/downloads/claude-account-reset-${pkg.version}.tar.gz`;
  const names=execFileSync('tar',['-tzf',archive],{cwd:root,encoding:'utf8'}).trim().split('\n');
  for(const name of ['SKILL.md','agents/openai.yaml','package.json','package-lock.json','bin/reset.mjs','bin/recover.mjs','bin/handoff.mjs','bin/backup.mjs','lib/cli.mjs','lib/engine.mjs','lib/planner.mjs'])assert.ok(names.includes(name),name);
+ for(const name of ['desktop/main.mjs','desktop/library.mjs','desktop/environment.mjs','desktop/readonly.mjs','desktop/ui/renderer.ts','docs/DESKTOP.md','forge.config.cjs'])assert.ok(names.includes(name),name);
+ assert.equal(names.some(n=>/\.(jsonl|sqlite|dmg|zip)$|\.(report|plan)\.json$|(^|\/)(payload|operation-backups|work)\//.test(n)),false,'Private/generated files entered the source archive');
  const skill=execFileSync('tar',['-xOf',archive,'SKILL.md'],{cwd:root,encoding:'utf8'});
  assert.match(skill,/^---\nname: claude-account-reset\ndescription: .+\n---\n/);
  for(const link of skill.matchAll(/\]\(([^)]+)\)/g))assert.ok(names.includes(link[1]),`Missing packaged reference: ${link[1]}`);
