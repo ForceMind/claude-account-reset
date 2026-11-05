@@ -60,9 +60,9 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
       case 'info': result = { version: app.getVersion(), demo, platform: process.platform }; break;
       case 'discover': currentPlan = null; result = await request('discover'); break;
       case 'pick': {
-        if (!['desktop', 'code'].includes(value)) throw Error('资料类型无效。');
+        if (!['desktop', 'code','project'].includes(value)) throw Error('资料类型无效。');
         if (demo) throw Error('演示模式只使用已生成的合成资料。');
-        const chosen = await dialog.showOpenDialog(window, { title: value === 'desktop' ? '选择 Claude Desktop 资料文件夹' : '选择 Claude Code 配置文件夹', properties: ['openDirectory', 'showHiddenFiles'] });
+        const chosen = await dialog.showOpenDialog(window, { title: value === 'desktop' ? '选择 Claude Desktop 资料文件夹' : value==='project'?'选择需要检查配置的项目文件夹':'选择 Claude Code 配置文件夹', properties: ['openDirectory', 'showHiddenFiles'] });
         result = chosen.canceled ? null : await request('addDirectory', chosen.filePaths[0], value); currentPlan = null; break;
       }
       case 'preview': currentPlan = null; result = await request('preview', value); currentPlan = result; break;
@@ -79,6 +79,19 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
       case 'previewRestore':
         if (typeof value !== 'string') throw Error('请选择备份。');
         currentPlan = null; result = await request('previewRestore', value); currentPlan = result; break;
+      case 'libraryScan': case 'libraryPage': case 'libraryPreview': case 'libraryAnalyze': case 'libraryMark': case 'libraryPrepare': case 'environment':
+        result=await request(method,value);break;
+      case 'libraryOutputs': result=await request(method);break;
+      case 'librarySave': {
+        if(typeof value!=='string')throw Error('请选择已准备的保存计划。');
+        let parent;
+        if(!demo){const selected=await dialog.showOpenDialog(window,{title:'选择保存位置，将创建新的独立文件夹',properties:['openDirectory','createDirectory']});if(selected.canceled){result={cancelled:true};break;}parent=selected.filePaths[0];}
+        result=await request(method,value,parent);break;
+      }
+      case 'libraryReveal': {
+        if(typeof value!=='string')throw Error('请选择已识别的会话或输出。');
+        const file=await request(method,value);if(!file)throw Error('没有可显示的本地文件。');shell.showItemInFolder(file);result=true;break;
+      }
       case 'reveal': {
         const target = value === 'report' ? lastResult?.report : value === 'latest-backup' ? lastResult?.backupDirectory : backupRows.find(b => b.id === value)?.path;
         if (!target) throw Error('没有可显示的本地结果。');
@@ -95,7 +108,7 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
 });
 
 app.whenReady().then(async () => {
-Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }, { role: 'quit' }] }, { label: '编辑', submenu: [{ role: 'copy' }, { role: 'selectAll' }] }]));
+Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }, { role: 'quit' }] }, { label: '编辑', submenu: [{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{ role: 'copy' },{role:'paste'}, { role: 'selectAll' }] }]));
 window = new BrowserWindow({ width: 1180, height: 820, minWidth: 880, minHeight: 650, backgroundColor: '#f5f4f0', title: 'Claude Account Reset', webPreferences: { preload: path.join(directory, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
 window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 window.webContents.on('will-navigate', event => event.preventDefault());

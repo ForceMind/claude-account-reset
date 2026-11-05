@@ -6,11 +6,14 @@ import { executePlan, inspectBackup, buildRestorePlan, executeRestore } from '..
 import { discover } from '../lib/core.mjs';
 import { safe, exists, within } from '../lib/safety.mjs';
 import { ensureStopped } from '../lib/platform.mjs';
+import { SessionLibrary } from './library.mjs';
+import { environmentOverview } from './environment.mjs';
 
 export class DesktopService {
   constructor({ home, storage, demo = false, platform = process.platform, emit = () => {} }) {
     this.home = path.resolve(home); this.storage = path.resolve(storage); this.demo = demo;
     this.platform = platform; this.emit = emit; this.directories = new Map(); this.plans = new Map(); this.backups = new Map(); this.cancelled = false;
+    this.library = new SessionLibrary({storage:this.storage,check:()=>this.checkCancel(),guard:()=>{this.checkCancel();if(!this.demo)ensureStopped();},emit:this.emit});
   }
   context() {
     return { home: this.home, ...(this.demo ? { keychainState: () => 'absent', environment: {} } : {}), guard: () => { this.checkCancel(); if (!this.demo) ensureStopped(); }, checkCancelled: () => this.checkCancel(), onProgress: event => this.emit(event) };
@@ -31,21 +34,45 @@ export class DesktopService {
     const desktop = await discover(this.home), code = path.join(this.home, '.claude');
     const rows = desktop.map(p => this.register(p, 'desktop'));
     if (await exists(code)) { await safe(code); rows.push(this.register(code, 'code')); }
+    if(this.demo&&await exists(path.join(this.home,'demo-project')))rows.push(this.register(path.join(this.home,'demo-project'),'project'));
     let processState = 'stopped';
     try { if (!this.demo) ensureStopped(); } catch { processState = 'blocked'; }
     return { directories: rows, demo: this.demo, processState, backupParent: path.join(this.storage, 'backups') };
   }
   async addDirectory(directory, kind) {
     this.checkPlatform();
-    if (!['desktop', 'code'].includes(kind) || typeof directory !== 'string') throw Error('资料类型无效。');
+    if (!['desktop', 'code','project'].includes(kind) || typeof directory !== 'string') throw Error('资料类型无效。');
     directory = path.resolve(directory); await safe(directory);
     if (!(await fs.stat(directory)).isDirectory()) throw Error('请选择文件夹。');
     if (this.demo && !within(directory, this.home)) throw Error('演示模式只能使用演示目录。');
+    if(within(directory,this.storage)||within(this.storage,directory))throw Error('请选择具体 Claude 资料或项目目录，不能包含本工具的数据目录。');
     if (kind === 'desktop' && !/^Claude(?:[- ]|$)/.test(path.basename(directory)) && !await exists(path.join(directory, 'claude_desktop_config.json'))) throw Error('未识别为 Claude Desktop 资料，请核对目录。');
     if (kind === 'code' && !await exists(path.join(directory, 'projects')) && !await exists(path.join(directory, '.claude.json'))) throw Error('未识别为 Claude Code 配置目录。');
     this.plans.clear(); return this.register(directory, kind);
   }
   invalidate() { this.plans.clear(); return true; }
+  selectedDirectories(ids){
+    this.checkPlatform();if(!Array.isArray(ids)||!ids.length||ids.length>100||ids.some(id=>!this.directories.has(id)))throw Error('请明确选择已经识别或授权的目录。');
+    return [...new Set(ids)].map(id=>this.directories.get(id));
+  }
+  async libraryScan(value){
+    if(!value||Object.keys(value).some(k=>k!=='directoryIds'))throw Error('读取范围无效。');
+    const dirs=this.selectedDirectories(value.directoryIds);if(!dirs.some(d=>d.kind!=='project'))throw Error('请选择 Desktop 或 Code 资料。');
+    return this.library.scan(dirs);
+  }
+  libraryPage(value){return this.library.page(value);}
+  libraryPreview(value){return this.library.preview(value);}
+  libraryAnalyze(id){return this.library.analyze(id);}
+  libraryMark(value){return this.library.mark(value);}
+  libraryPrepare(value){return this.library.prepare(value);}
+  librarySave(id,parent){return this.library.save(id,this.demo?path.join(this.storage,'exports'):parent);}
+  libraryOutputs(){return this.library.outputs();}
+  libraryReveal(id){return this.library.reveal(id);}
+  async environment(value){
+    if(!value||Object.keys(value).some(k=>k!=='directoryIds'))throw Error('读取范围无效。');
+    const dirs=this.selectedDirectories(value.directoryIds);if(dirs.every(d=>d.kind==='project'))throw Error('请至少选择一份 Desktop 或 Code 资料，项目配置需关联 Code 视图。');
+    return environmentOverview(dirs,{home:this.home,check:()=>this.checkCancel()});
+  }
   async preview(request) {
     this.checkPlatform(); this.plans.clear();
     if (!request || Object.keys(request).some(k => !['directoryIds', 'traces', 'identityRecords', 'includeKeychain'].includes(k))) throw Error('检查选项无效。');
@@ -53,6 +80,7 @@ export class DesktopService {
     for (const k of ['traces', 'identityRecords', 'includeKeychain']) if (typeof request[k] !== 'boolean') throw Error('请选择明确的处理范围。');
     if (this.demo && request.includeKeychain) throw Error('演示模式不访问或清理系统钥匙串。');
     const selected = [...new Set(request.directoryIds)].map(id => this.directories.get(id));
+    if(selected.some(d=>d.kind==='project'))throw Error('项目配置目录只用于环境概览，不参与清理。');
     const profiles = selected.filter(d => d.kind === 'desktop').map(d => d.path), codeDirs = selected.filter(d => d.kind === 'code').map(d => d.path);
     if (!profiles.length) throw Error('首版需要至少选择一份 Desktop 资料；不会自动扩大到其他目录。');
     this.emit({ phase: 'planning', message: '读取选定资料并计算保护范围；不会改写原文件。' });

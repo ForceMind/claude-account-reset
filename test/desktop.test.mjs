@@ -6,6 +6,7 @@ import os from 'node:os';
 import { DesktopService } from '../desktop/service.mjs';
 import { createDemo } from '../desktop/demo.mjs';
 import { fingerprint, contentTree } from '../lib/safety.mjs';
+import {planDigest} from '../lib/planner.mjs';
 
 async function setup(t, emit = () => {}) {
   const root = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'desktop-test-'));
@@ -110,4 +111,12 @@ test('desktop review discloses retained credential sources without leaking value
   assert(p.limitations.some(s => s.includes('Claude Code-credentials')));
   assert.equal(text.includes('SYNTHETIC-PRIVATE-HELPER'), false);
   assert.equal(text.includes('SYNTHETIC-PRIVATE-KEY'), false);
+});
+
+test('v0.6 desktop can inspect and restore a validated v0.5 backup without accepting older execute plans',async t=>{
+  const f=await setup(t),before=await fingerprint(f.sourceRoots),p=await f.service.preview(f.request),result=await f.service.execute(p.id);
+  const file=path.join(result.backupDirectory,'journal.json'),journal=JSON.parse(await fs.readFile(file));journal.version='0.5.0';journal.plan.version='0.5.0';journal.plan.digest=planDigest(journal.plan);await fs.writeFile(file,JSON.stringify(journal));
+  const backups=await f.service.listBackups();assert.equal(backups[0].valid,true);
+  const restore=await f.service.previewRestore(backups[0].id);await f.service.restore(restore.id);
+  const after=await fingerprint(f.sourceRoots);for(const root of f.sourceRoots)assert.deepEqual(contentTree(after[root]),contentTree(before[root]));
 });

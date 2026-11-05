@@ -20,7 +20,7 @@ worker.on('exit', () => { for (const p of pending.values()) p.reject(Error('Pack
 const timeout = setTimeout(() => { console.error('Native integration timed out'); worker.kill(); app.exit(1); }, 45000);
 function request(method, ...args) { return new Promise((resolve, reject) => { const id = randomUUID(); pending.set(id, { resolve, reject }); worker.postMessage({ id, method, args }); }); }
 try {
-  await new Promise((resolve, reject) => { const id = randomUUID(); pending.set(id, { resolve, reject }); worker.postMessage({ id, method: 'init', demo: true, demoRoot: root }); });
+  await new Promise((resolve, reject) => { const id = randomUUID(); pending.set(id, { resolve, reject }); worker.postMessage({ id, method: 'init', demo: true, richDemo:false, demoRoot: root }); });
   const found = await request('discover'); assert.equal(found.demo, true); assert.equal(found.directories.length, 2);
   assert(found.directories.every(d => d.path.startsWith(root + '/')));
   const p = await request('preview', { directoryIds: found.directories.map(d => d.id), traces: false, identityRecords: false, includeKeychain: false });
@@ -28,7 +28,12 @@ try {
   const result = await request('execute', p.id); assert.equal(result.status, 'complete'); assert.equal(result.protectedDataVerified, true); assert.equal(result.backupDiscarded, false);
   const backups = await request('listBackups'); assert.equal(backups[0].valid, true);
   const restore = await request('previewRestore', backups[0].id); const restored = await request('restore', restore.id); assert.equal(restored.status, 'complete');
-  console.log(JSON.stringify({ packagedUtilityProcess: true, packagedNativeLevelDB: true, syntheticPreviewApplyRestore: true, noRealAccountData: true, uiVerified: false }));
+  const directoryIds=found.directories.map(d=>d.id);await request('libraryScan',{directoryIds});const page=await request('libraryPage',{});assert.equal(page.total,1);
+  const row=page.rows[0];const preview=await request('libraryPreview',{id:row.id,copyId:row.copies[0].id});assert(!JSON.stringify(preview).includes('SYNTHETIC THINKING'));
+  await request('libraryMark',{id:row.id,favorite:true,note:'Synthetic integration note'});
+  const environment=await request('environment',{directoryIds});assert.equal(environment.cards.length,2);
+  for(const kind of ['markdown','backup']){const ticket=await request('libraryPrepare',{ids:[row.id],kind});const saved=await request('librarySave',ticket.id);assert.equal(saved.sourceUnchanged,true);assert.equal(saved.files,1);}
+  console.log(JSON.stringify({ packagedUtilityProcess: true, packagedNativeLevelDB: true, syntheticPreviewApplyRestore: true,sessionPreviewMarkExportBackup:true,environmentOverview:true,noRealAccountData: true, uiVerified: false }));
   clearTimeout(timeout); worker.kill(); await fs.rm(root, { recursive: true, force: true }); app.exit(0);
 } catch (error) { clearTimeout(timeout); console.error(error.message); worker.kill(); app.exit(1); }
 
