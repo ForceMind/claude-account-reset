@@ -1,0 +1,2 @@
+96e4cb9bc7455cad7173c455143c91f6952cc35e9b2f3659f2525ad70e2b4dd6  Claude-Account-Reset-0.7.0-win-x64.exe
+b74ade549964cdddde3a85d92a196d375e10f750a1b6536e855a88ec09729555  Claude-Account-Reset-0.7.0-win-x64.zip
