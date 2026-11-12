@@ -17,3 +17,5 @@ Windows Desktop 的目录发现覆盖常见 Roaming 资料和 Claude MSIX 的 Ro
 ## 验证和构建
 
 在 Windows x64 运行 `npm ci --ignore-scripts --no-audit --no-fund`、`npm run test:windows` 和 `npm run desktop:make:windows`。Windows 工作流检验合成凭据和会话、文件占用、权限保全、恢复冲突、包内后台及已安装应用启动，并输出 EXE、便携 ZIP 和 `SHA256SUMS`。Apple Silicon 版本仍使用原有 macOS 打包命令。候选安装包的分发签名状态以交付记录为准。
+
+候选版已在 GitHub Actions 的 Windows Server 2025 x64 runner 完成合成测试、安装和演示窗口启动。下载安装 EXE，或解压便携 ZIP 后打开 `Claude Account Reset.exe`。可用 PowerShell 的 `Get-FileHash -Algorithm SHA256` 和随包清单比对。安装器未签名。[候选构建产物](https://github.com/ForceMind/claude-account-reset/actions/runs/43189303993/artifacts/13929534199)

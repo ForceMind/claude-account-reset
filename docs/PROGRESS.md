@@ -2,7 +2,11 @@
 
 ## v0.7.0 Windows x64 候选 · 2026-11-12
 
-用户已确认 Windows 原生维护客户端、合成资料验收和可双击安装包。独立 `windows-support` 分支实现 Code 登录清理、Windows 进程检查、ACL 备份及权限校验恢复，并保留会话与 thinking。Windows 工作流执行故障测试、打包与安装启动检查，并在独立 runner 核对官方 Desktop 安装布局。当前阶段待 runner 结果和产物回读。
+独立 `windows-support` 分支实现 Code 与已识别 MSIX Desktop 登录状态的清理、Windows 进程检查、备份与 ACL 校验恢复，并保留会话与 thinking。会话管理、环境概览、Markdown 导出和会话备份沿用桌面客户端流程。
+
+候选提交 `99c7436` 的 [GitHub Actions](https://github.com/ForceMind/claude-account-reset/actions/runs/43189303993) 全部通过。Windows Server 2025 x64 的 8 项测试覆盖精确清理、会话保护、权限保全、占用与冲突。打包后的后台完成合成资料维护与会话管理，Squirrel EXE 完成安装和演示窗口启动。[构建产物](https://github.com/ForceMind/claude-account-reset/actions/runs/43189303993/artifacts/13929534199) 包含未签名的 EXE、便携 ZIP 和 SHA-256。
+
+同一工作流在独立 runner 注册了 Anthropic x64 MSIX `5.1231.2.0`，核对了包族和 Roaming 路径。清理与恢复验证只用合成资料。Windows 11 实机和在线重新登录尚未验证。
 
 目标：发布可复用的 macOS CLI、公开 GitHub 源码、说明网页及可校验的下载包，部署 Cloudflare Pages。
 
