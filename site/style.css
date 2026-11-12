@@ -7,3 +7,4 @@
 .download-links{display:flex;gap:16px;flex-wrap:wrap}.download-links a{font-size:12px}.terminal[aria-label] .green{font-size:15px;letter-spacing:2px}@media(max-width:780px){.download-links{gap:12px}.hero .actions{flex-wrap:wrap}}
 
 .download-platform + .download-platform{margin-top:28px}.download-platform>p{font-size:13px;color:var(--muted);margin:10px 0 0}.download-platform>p a{color:var(--green)}
+.download-choice{display:inline-flex;align-items:center;gap:8px}.download-mirror{border-left:1px solid #b8c9ba;padding-left:8px;color:var(--green)}
