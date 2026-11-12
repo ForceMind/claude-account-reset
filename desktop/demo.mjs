@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ClassicLevel } from 'classic-level';
+import { defaultDesktopProfile } from '../lib/core.mjs';
 
 // Only synthetic data created under a new, private root. Never discover the real home.
 export async function createDemo(root,{rich=false}={}) {
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
   const home = await fs.mkdtemp(path.join(root, 'sample-'));
-  const profile = path.join(home, 'Library/Application Support/Claude');
+  const profile = defaultDesktopProfile(home);
   const code = path.join(home, '.claude');
   const id = '11111111-1111-4111-8111-111111111111';
   const index = path.join(profile, 'claude-code-sessions/demo-account/demo-org');

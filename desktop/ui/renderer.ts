@@ -5,7 +5,7 @@ type Backup = { id: string; name: string; path: string; status: string; valid: b
 interface Window { maintenance: { call(method: string, value?: unknown): Promise<{ ok: boolean; value?: any; error?: string }>; onProgress(callback: (event: any) => void): () => void } }
 
 const content = document.querySelector('#content')!;
-let rows: Row[] = [], selected = new Set<string>(), plan: Plan | null = null, demo = false, busy = false;
+let rows: Row[] = [], selected = new Set<string>(), plan: Plan | null = null, demo = false, busy = false, windowsClient = false;
 let options = { traces: false, identityRecords: false, includeKeychain: false };
 const $ = (id: string) => document.getElementById(id)!;
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, text = '', className = ''): HTMLElementTagNameMap[K] { const e = document.createElement(tag); e.textContent = text; e.className = className; return e; }
@@ -23,24 +23,28 @@ function activate(view:string){for(const key of ['sessions','environment','reset
 function resetView() {
   activate('reset');
   heading('换个账号，保留已有对话。', '先查看本机资料，再审阅具体变更。每一次执行都会先备份并校验。'); steps(0);
-  const source = card('01　选择要检查的资料', '不会默认扩大到未选择的目录。首版至少选择一份 Desktop 资料；Code 资料可选。');
-  if (!rows.length) source.append(node('div', '尚未识别资料。点击下方按钮开始，或手动选择文件夹。', 'empty'));
-  for (const row of rows.filter(r=>r.kind!=='project')) {
+  const sources = rows.filter(row => windowsClient ? row.kind === 'code' : row.kind !== 'project');
+  const source = card('选择要检查的资料', windowsClient ? '选择 Code 配置目录以检查登录状态。Desktop 资料可在会话与环境页面查看。' : '选择一份 Desktop 资料。也可同时选择 Code 资料。');
+  if (!sources.length) source.append(node('div', '尚未识别资料。点击下方按钮开始，或手动选择文件夹。', 'empty'));
+  for (const row of sources) {
     const label = node('label', '', 'source-row'), checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(row.id);
     checkbox.onchange = () => { if (checkbox.checked) selected.add(row.id); else selected.delete(row.id); invalidate(); };
     const text = node('div'); const title = node('strong', row.name); title.append(node('span', row.kind === 'desktop' ? 'DESKTOP' : 'CODE', 'tag')); text.append(title, node('span', row.path, 'path')); label.append(checkbox, text); source.append(label);
   }
   const tools = node('div', '', 'actions'); tools.append(button('识别本机资料', discover, true));
-  if (!demo) for (const [kind, title] of [['desktop', '选择 Desktop 文件夹'], ['code', '选择 Code 文件夹']] as const) tools.append(button(title, () => perform(async () => { const row = await call('pick', kind); if (row) { rows = [...rows.filter(r => r.id !== row.id), row]; resetView(); } }), true));
+  if (!demo) for (const [kind, title] of [['desktop', '选择 Desktop 文件夹'], ['code', '选择 Code 文件夹']] as const) {
+    if (windowsClient && kind === 'desktop') continue;
+    tools.append(button(title, () => perform(async () => { const row = await call('pick', kind); if (row) { rows = [...rows.filter(r => r.id !== row.id), row]; resetView(); } }), true));
+  }
   source.append(tools);
-  const settings = card('02　选择处理范围', '默认只处理已知登录状态，不改写会话正文。以下额外范围均须明确选择。');
+  const settings = card('处理范围', windowsClient ? '清理所选 Code 目录中已识别的登录状态。' : '默认只处理已知登录状态。额外范围均须明确选择。');
   const descriptions = { traces: ['已知缓存与遥测字段', '仅处理现有规则识别的字段，不是全盘缓存删除。'], identityRecords: ['本地身份登记字段', '额外处理 userID、ant-did 等已知登记；不更改 machineID。'], includeKeychain: ['共享钥匙串项', demo ? '演示模式禁用；不会访问真实系统钥匙串。' : '影响 Claude Safe Storage。文件备份不能恢复此项，执行时需再次确认。'] };
-  for (const key of Object.keys(descriptions) as (keyof typeof descriptions)[]) {
+  for (const key of (windowsClient ? [] : Object.keys(descriptions)) as (keyof typeof descriptions)[]) {
     const label = node('label', '', 'option'), input = node('input'); input.type = 'checkbox'; input.name = key; input.checked = options[key]; input.disabled = demo && key === 'includeKeychain'; input.onchange = () => { options[key] = input.checked; invalidate(); };
     const text = node('div'); text.append(node('strong', descriptions[key][0]), node('small', descriptions[key][1])); label.append(input, text); settings.append(label);
   }
   settings.append(node('div', '始终保留：会话正文、thinking、项目文件和所有既有备份。', 'protected'));
-  actions(button('生成只读检查与计划 →', () => perform(async () => { plan = await call('preview', { directoryIds: rows.filter(r=>selected.has(r.id)&&r.kind!=='project').map(r=>r.id), ...options }); planView(); })));
+  actions(button('生成只读检查与计划 →', () => perform(async () => { plan = await call('preview', { directoryIds: sources.filter(r=>selected.has(r.id)).map(r=>r.id), ...options }); planView(); })));
 }
 async function discover() { return perform(async () => { const result = await call('discover'); rows = result.directories; selected.clear(); resetView(); if (result.processState === 'blocked') alert('检测到 Claude 运行或进程状态无法确认。可以选择目录；请完全退出 Claude 后再生成计划。'); }); }
 function bytes(n: number) { return n < 1048576 ? Math.ceil(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
@@ -65,7 +69,7 @@ function resultView(result: any) {
   const c = card('结果与保留项'); c.append(node('p', `完成 ${result.changes?.length ?? 0} 项处理；会话正文与 thinking 保留。`), node('p', '界面恢复与真实模型续聊未验证；不代表服务端账号状态或所有未知记录已清空。', 'caption'));
   if (result.keychainIrreversible) c.append(node('div', '本次包含钥匙串删除。文件恢复无法还原该项。', 'warning'));
   c.append(node('span', result.backupDirectory, 'path'));
-  actions(button('在 Finder 显示报告', () => perform(async () => { await call('reveal', 'report'); }), true), button('查看备份与恢复', backupsView));
+  actions(button('打开报告所在目录', () => perform(async () => { await call('reveal', 'report'); }), true), button('查看备份与恢复', backupsView));
 }
 async function backupsView() { return perform(async () => {
   const backups: Backup[] = await call('backups');
@@ -76,7 +80,7 @@ async function backupsView() { return perform(async () => {
     const status = b.status === 'complete' ? '备份完整，校验通过' : b.status === 'partial-or-stopped' ? '批次未完成，原始备份保留' : '请保留原件并检查批次记录';
     const c = card(b.valid ? '已校验的本地备份' : '备份需要检查', status); c.append(node('span', b.path, 'path'));
     const states = b.entries ?? []; if (states.some(e => e.state === 'conflict')) c.append(node('p', '当前资料包含新变化。恢复会停止，不会覆盖新数据。', 'warning'));
-    const bar = node('div', '', 'actions'); bar.append(button('在 Finder 显示', () => perform(async () => { await call('reveal', b.id); }), true));
+    const bar = node('div', '', 'actions'); bar.append(button('打开备份所在目录', () => perform(async () => { await call('reveal', b.id); }), true));
     if (b.valid) bar.append(button('检查恢复计划', () => perform(async () => { plan = await call('previewRestore', b.id); restoreView(); }), true));
     c.append(bar);
   }
@@ -142,7 +146,7 @@ function renderDetail(panel:HTMLElement,row:SessionRow){
   if(row.copies.length)panel.append(button('比较副本与检测 thinking',()=>perform(async()=>{const analysis=await call('libraryAnalyze',row.id);row.classification=analysis.classification;sessionsView();const target=content.querySelector('.session-detail')!;target.append(node('p',`${classification[analysis.classification]} · 各副本合计 ${analysis.thinkingBlocks} 个 thinking 块（不去重）。`,'protected'));}),true));
   const preview=node('div','','transcript');
   for(const copy of row.copies){panel.append(node('span',copy.path,'path'),button('预览这份正文 · '+bytes(copy.bytes),()=>previewPage(row,copy.id,null,preview),true));}
-  if(row.copies.length||row.indexCount)panel.append(button('在 Finder 显示源文件',()=>perform(async()=>{await call('libraryReveal',row.id);}),true));panel.append(preview);
+  if(row.copies.length||row.indexCount)panel.append(button('打开源文件所在目录',()=>perform(async()=>{await call('libraryReveal',row.id);}),true));panel.append(preview);
 }
 async function previewPage(row:SessionRow,copyId:string,cursor:string|null,target:HTMLElement){return perform(async()=>{const page=await call('libraryPreview',{id:row.id,copyId,cursor});target.replaceChildren(node('p',page.scope,'caption'));target.append(node('p',`本页跳过 ${page.thinkingInPage} 个思考块，原文保留。`,'caption'));for(const message of page.messages){target.append(node('strong',message.role==='user'?'用户':'Claude'),node('pre',message.text));if(message.truncated)target.append(node('p','此条仅为截短预览；可导出 Markdown 查看完整可见文本。','caption'));}if(page.next)target.append(button('下一页记录',()=>previewPage(row,copyId,page.next,target),true));target.append(button('从头读取这份正文',()=>previewPage(row,copyId,null,target),true));});}
 async function prepareSave(kind:'markdown'|'backup'){return perform(async()=>{
@@ -152,7 +156,7 @@ async function prepareSave(kind:'markdown'|'backup'){return perform(async()=>{
 function environmentView(){
   activate('environment');heading('看懂配置，再决定下一步。','这里只读取你授权的配置，不切换账号、不改连接，也不启动模型、MCP 或凭据提供器。');sourcePanel('environment');
   if(!environmentData){card('等待读取环境信息','可以额外授权项目目录，查看项目配置；未检查的来源会标为未知。');return;}
-  for(const env of environmentData.cards){const c=card(env.name+' · '+(env.kind==='desktop'?'Desktop':'Code'));c.append(node('span',env.path,'path'));const table=node('dl','','environment-values');for(const [label,value]of [['版本',env.version],['连接候选',env.connection],['模型候选',env.model],['运行状态',env.runtime],['MCP 配置',env.mcp.length?env.mcp.join('、'):'已检查文件中未发现'],['凭据来源',env.credentials.filter((s:any)=>s.configured).map((s:any)=>s.name).join('、')||'已检查来源中未发现，系统钥匙串未检查']])table.append(node('dt',label),node('dd',value));c.append(table);
+  for(const env of environmentData.cards){const c=card(env.name+' · '+(env.kind==='desktop'?'Desktop':'Code'));c.append(node('span',env.path,'path'));const table=node('dl','','environment-values');for(const [label,value]of [['版本',env.version],['连接候选',env.connection],['模型候选',env.model],['运行状态',env.runtime],['MCP 配置',env.mcp.length?env.mcp.join('、'):'已检查文件中未发现'],['凭据来源',env.credentials.filter((s:any)=>s.configured).map((s:any)=>s.name).join('、')||'已检查文件中未发现凭据来源']])table.append(node('dt',label),node('dd',value));c.append(table);
     for(const hint of env.identity)c.append(node('p',hint.name+'：'+hint.value+' · '+hint.status,'caption'));for(const conflict of env.conflicts)c.append(node('p',conflict,'warning'));
     const details=node('details');details.append(node('summary','查看配置来源与候选值'));for(const source of env.sources)details.append(node('p',source.scope+' · '+source.state,'caption'),node('span',source.file,'path'));for(const candidate of env.candidates)details.append(node('p',candidate.scope+' · '+candidate.field+' = '+candidate.value,'caption'));c.append(details);
   }
@@ -165,4 +169,4 @@ $('nav-reset').onclick = () => { if (!busy) { alert(); invalidate(); resetView()
 $('nav-backups').onclick = () => void backupsView();
 $('nav-sessions').onclick=()=>{if(!busy){alert();sessionsView();}};
 $('nav-environment').onclick=()=>{if(!busy){alert();environmentView();}};
-void perform(async () => { const info = await call('info'); demo = info.demo; $('demo').hidden = !demo; $('version').textContent = `v${info.version} · ${demo ? '合成资料演示' : 'macOS 客户端'}`; sessionsView(); });
+void perform(async () => { const info = await call('info'); demo = info.demo; windowsClient = info.platform === 'win32'; $('demo').hidden = !demo; $('version').textContent = `v${info.version} · ${demo ? '合成资料演示' : windowsClient ? 'Windows 客户端' : 'macOS 客户端'}`; sessionsView(); });

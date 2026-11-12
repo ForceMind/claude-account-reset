@@ -1,5 +1,9 @@
 # 交付记录
 
+## v0.7.0 Windows x64 候选 · 2026-11-12
+
+用户已确认 Windows 原生维护客户端、合成资料验收和可双击安装包。独立 `windows-support` 分支实现 Code 登录清理、Windows 进程检查、ACL 备份及权限校验恢复，并保留会话与 thinking。Windows 工作流执行故障测试、打包与安装启动检查，并在独立 runner 核对官方 Desktop 安装布局。当前阶段待 runner 结果和产物回读。
+
 目标：发布可复用的 macOS CLI、公开 GitHub 源码、说明网页及可校验的下载包，部署 Cloudflare Pages。
 
 当前批次：0.1.0。默认检查；清理、扩展痕迹、共享钥匙串分别显式选择。仅发布通用代码和匿名化经验。

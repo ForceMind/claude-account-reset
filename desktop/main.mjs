@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import squirrelStartup from 'electron-squirrel-startup';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const demo = process.argv.includes('--demo');
@@ -107,7 +108,7 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
   } finally { busy = false; }
 });
 
-app.whenReady().then(async () => {
+if (!squirrelStartup) app.whenReady().then(async () => {
 Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }, { role: 'quit' }] }, { label: '编辑', submenu: [{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{ role: 'copy' },{role:'paste'}, { role: 'selectAll' }] }]));
 window = new BrowserWindow({ width: 1180, height: 820, minWidth: 880, minHeight: 650, backgroundColor: '#f5f4f0', title: 'Claude Account Reset', webPreferences: { preload: path.join(directory, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true } });
 window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

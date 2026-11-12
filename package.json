@@ -1,7 +1,7 @@
 {
   "name": "claude-account-reset",
-  "version": "0.6.0",
-  "description": "Local macOS Claude account reset with conversation preservation checks",
+  "version": "0.7.0",
+  "description": "Local Claude maintenance with conversation preservation checks",
   "type": "module",
   "private": true,
   "license": "MIT",
@@ -25,10 +25,13 @@
     "desktop:start": "npm run desktop:build && electron .",
     "desktop:demo": "npm run desktop:build && electron . --demo",
     "desktop:package": "npm run desktop:build && electron-forge package --platform=darwin",
-    "desktop:make": "npm run desktop:build && electron-forge make --platform=darwin && node scripts/make-dmg.mjs"
+    "desktop:make": "npm run desktop:build && electron-forge make --platform=darwin && node scripts/make-dmg.mjs",
+    "desktop:make:windows": "npm run desktop:build && electron-forge make --platform=win32 --arch=x64",
+    "test:windows": "node --test test/windows.test.mjs test/stream-contract.test.mjs"
   },
   "dependencies": {
-    "classic-level": "3.0.0"
+    "classic-level": "3.0.0",
+    "electron-squirrel-startup": "1.0.1"
   },
   "main": "desktop/main.mjs",
   "productName": "Claude Account Reset",
@@ -37,6 +40,7 @@
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-squirrel": "8.0.1",
     "@electron-forge/maker-zip": "8.0.1",
     "@electron-forge/plugin-auto-unpack-natives": "8.0.1",
     "electron": "45.2.2",

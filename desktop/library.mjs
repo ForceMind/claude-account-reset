@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {rawLines,decodeLine,projectRecord,scanTranscript,classifyCopies} from '../lib/transcripts.mjs';
-import {safe,exists,sha,writeNew,atomicJSON,within,checkSpace} from '../lib/safety.mjs';
+import {safe,exists,sha,writeNew,atomicJSON,within,checkSpace,privateDirectory} from '../lib/safety.mjs';
 import {stamp,unchanged,jsonFile,digest,shortText} from './readonly.mjs';
 
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -56,7 +56,7 @@ export class SessionLibrary{
       row.lastActivity=validTime(preferred?.lastActivityAt);row.fileUpdated=row.copies.length?new Date(Math.max(...row.copies.map(c=>c.before.mtimeMs))).toISOString():null;
       row.archived=row.indexes.length&&row.indexes.every(i=>i.data.isArchived)?'archived':row.indexes.some(i=>i.data.isArchived)?'mixed':'active';
       if(!row.copies.length)row.issues.push('正文缺失');if(!row.indexes.length)row.issues.push('没有 Desktop 索引，仅发现 Code 正文');
-      if(row.project.startsWith('/')&&!await exists(row.project))row.issues.push('工作目录不存在');
+      if(path.isAbsolute(row.project)&&!await exists(row.project))row.issues.push('工作目录不存在');
       if(row.indexes.some(i=>links.get(i.data.sessionId)?.size>1))row.issues.push('同一 Desktop 标识关联多个 CLI 记录，已分别列出');
       row.classification=row.copies.length>1?'unchecked':row.copies.length?'single':'missing';row.mark=marks[row.id]??{favorite:false,note:''};this.rows.set(row.id,row);
     }
@@ -92,7 +92,7 @@ export class SessionLibrary{
   async readMarks(){const file=path.join(this.storage,'library-marks.json');if(!await exists(file))return {};return (await jsonFile(file)).data;}
   async mark({id,favorite,note}){
     const row=this.get(id);if(typeof favorite!=='boolean'||typeof note!=='string'||note.length>2000)throw Error('备注最多 2000 字，请明确选择收藏状态。');
-    await safe(this.storage);await fs.mkdir(this.storage,{recursive:true,mode:0o700});const marks=await this.readMarks();marks[id]={favorite,note};await atomicJSON(path.join(this.storage,'library-marks.json'),marks);row.mark=marks[id];return row.mark;
+    await privateDirectory(this.storage,{recursive:true});const marks=await this.readMarks();marks[id]={favorite,note};await atomicJSON(path.join(this.storage,'library-marks.json'),marks);row.mark=marks[id];return row.mark;
   }
   async prepare({ids,kind}){
     this.tickets.clear();if(!['markdown','backup'].includes(kind)||!Array.isArray(ids)||!ids.length||ids.length>200||new Set(ids).size!==ids.length)throw Error('请选择 1 至 200 条明确会话。');
@@ -112,7 +112,7 @@ export class SessionLibrary{
     for(const i of ticket.indexes)await unchanged(i.file,i.before);
     await fs.mkdir(parent,{recursive:true,mode:0o700});await checkSpace([{directory:parent,requiredBytes:ticket.files.reduce((n,f)=>n+f.bytes*3,0)+4*1024*1024}]);
     const id=randomUUID(),stage=path.join(parent,'.claude-session-stage-'+id),destination=path.join(parent,'claude-sessions-'+ticket.kind+'-'+id);
-    await fs.mkdir(stage,{mode:0o700});let published=false;
+    await privateDirectory(stage);let published=false;
     try{
       const manifest={schema:1,kind:ticket.kind,createdAt:new Date().toISOString(),sessions:ticket.rows,files:[],limitations:['不包含项目、外部附件或云端资产','本备份不是账号恢复包，不包含配置凭据，也不自动导入 Claude']};
       for(const [n,f] of ticket.files.entries()){
@@ -130,7 +130,7 @@ export class SessionLibrary{
       await safe(parent);await writeNew(path.join(stage,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
       await fs.rename(stage,destination);published=true;
       this.outputsMap.set(id,destination);let registered=true;
-      try{await fs.mkdir(this.storage,{recursive:true,mode:0o700});const registryFile=path.join(this.storage,'library-outputs.json');
+      try{await privateDirectory(this.storage,{recursive:true});const registryFile=path.join(this.storage,'library-outputs.json');
         const registry=await exists(registryFile)?(await jsonFile(registryFile)).data:{};registry[id]={path:destination,kind:ticket.kind,createdAt:manifest.createdAt,files:ticket.files.length};
         await atomicJSON(registryFile,registry);
       }catch{registered=false;}

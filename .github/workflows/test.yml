@@ -12,4 +12,71 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm test
       - run: npm run desktop:build
-      - run: npm run build:site
+      - run: npm run build:site -- --source-only
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:windows
+      - run: npm run desktop:make:windows
+      - name: Verify packaged maintenance engine
+        shell: pwsh
+        run: |
+          $electron = node -p "require('electron')"
+          $bundle = (Resolve-Path 'out/Claude Account Reset-win32-x64').Path
+          $process = Start-Process -FilePath $electron -ArgumentList @('desktop/integration-smoke.mjs', ('"' + $bundle + '"')) -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -ne 0) { throw 'Packaged maintenance test failed' }
+      - name: Install candidate and verify its window
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem 'out/make' -Filter 'Claude-Account-Reset-0.7.0-win-x64.exe' -Recurse | Select-Object -First 1
+          if (!$setup) { throw 'Installer was not produced' }
+          $install = Start-Process $setup.FullName -ArgumentList '--silent' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw 'Installation failed' }
+          $exe = Get-ChildItem "$env:LOCALAPPDATA/ClaudeAccountReset/app-*" -Filter 'Claude Account Reset.exe' -File | Select-Object -First 1
+          if (!$exe) { throw 'Installed executable not found' }
+          $app = Start-Process $exe.FullName -ArgumentList '--demo' -PassThru
+          try {
+            $ready = $false
+            foreach ($attempt in 1..30) {
+              $app.Refresh()
+              if ($app.HasExited) { throw 'Installed application exited early' }
+              if ($app.MainWindowTitle -eq 'Claude Account Reset') { $ready = $true; break }
+              Start-Sleep -Seconds 1
+            }
+            if (!$ready) { throw 'Installed application window unavailable' }
+          } finally {
+            if (!$app.HasExited) { Stop-Process -Id $app.Id }
+          }
+      - name: Stage installer and checksums
+        shell: pwsh
+        run: |
+          $destination = New-Item -ItemType Directory -Path 'out/windows-delivery'
+          $installer = Get-ChildItem 'out/make' -Filter 'Claude-Account-Reset-0.7.0-win-x64.exe' -Recurse | Select-Object -First 1
+          $zip = Get-ChildItem 'out/make/zip/win32/x64' -Filter '*.zip' | Select-Object -First 1
+          if (!$installer -or !$zip) { throw 'Expected deliverables are missing' }
+          Copy-Item $installer.FullName $destination.FullName
+          Copy-Item $zip.FullName (Join-Path $destination.FullName 'Claude-Account-Reset-0.7.0-win-x64.zip')
+          Get-ChildItem $destination.FullName -File | Sort-Object Name | ForEach-Object {
+            (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name
+          } | Set-Content (Join-Path $destination.FullName 'SHA256SUMS') -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-account-reset-windows-x64
+          path: out/windows-delivery/
+          compression-level: 0
+          if-no-files-found: error
+  windows-desktop-layout:
+    if: github.ref == 'refs/heads/windows-support'
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - shell: pwsh
+        run: powershell.exe -NoProfile -NonInteractive -File scripts/probe-windows-desktop.ps1

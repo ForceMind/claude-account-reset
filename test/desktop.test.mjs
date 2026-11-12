@@ -93,8 +93,8 @@ test('new user content and corrupt backup are never overwritten during desktop r
 
 test('desktop refuses unsupported platform and demo directory escapes', async t => {
   const f = await setup(t);
-  const win = new DesktopService({ home: f.home, storage: f.storage, demo: true, platform: 'win32' });
-  await assert.rejects(win.discover(), /只支持 macOS/);
+  const unsupported = new DesktopService({ home: f.home, storage: f.storage, demo: true, platform: 'linux' });
+  await assert.rejects(unsupported.discover(), /支持 macOS 和 Windows/);
   await assert.rejects(f.service.addDirectory(path.dirname(f.home), 'desktop'), /演示目录/);
   const link = path.join(f.home, 'Claude-link'); await fs.symlink(f.profile, link);
   await assert.rejects(f.service.addDirectory(link, 'desktop'), /Symlink/);

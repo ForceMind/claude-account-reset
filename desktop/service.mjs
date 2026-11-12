@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { buildPlan, savePlan } from '../lib/planner.mjs';
 import { executePlan, inspectBackup, buildRestorePlan, executeRestore } from '../lib/engine.mjs';
 import { discover } from '../lib/core.mjs';
-import { safe, exists, within } from '../lib/safety.mjs';
+import { safe, exists, within, privateDirectory } from '../lib/safety.mjs';
 import { ensureStopped } from '../lib/platform.mjs';
 import { SessionLibrary } from './library.mjs';
 import { environmentOverview } from './environment.mjs';
@@ -20,7 +20,7 @@ export class DesktopService {
   }
   checkCancel() { if (this.cancelled) throw Error('Desktop operation stopped by user'); }
   checkPlatform() {
-    if (this.platform !== 'darwin') throw Error('本批次只支持 macOS，其他平台暂不开放操作。');
+    if (!['darwin','win32'].includes(this.platform)) throw Error('当前客户端支持 macOS 和 Windows。');
     if (!this.demo && process.getuid?.() === 0) throw Error('请以自己的用户身份启动客户端，不要使用管理员提权。');
   }
   register(directory, kind) {
@@ -31,9 +31,17 @@ export class DesktopService {
   }
   async discover() {
     this.checkPlatform(); this.plans.clear();
-    const desktop = await discover(this.home), code = path.join(this.home, '.claude');
+    const environment=this.demo?{}:process.env;
+    const desktop = await discover(this.home,environment), code = path.join(this.home, '.claude');
     const rows = desktop.map(p => this.register(p, 'desktop'));
     if (await exists(code)) { await safe(code); rows.push(this.register(code, 'code')); }
+    if(this.platform==='win32'&&environment.CLAUDE_CONFIG_DIR&&path.isAbsolute(environment.CLAUDE_CONFIG_DIR)) {
+      const configured=path.resolve(environment.CLAUDE_CONFIG_DIR);
+      if(configured!==code) {
+        try { rows.push(await this.addDirectory(configured,'code')); }
+        catch { /* An unsupported path remains available for manual inspection. */ }
+      }
+    }
     if(this.demo&&await exists(path.join(this.home,'demo-project')))rows.push(this.register(path.join(this.home,'demo-project'),'project'));
     let processState = 'stopped';
     try { if (!this.demo) ensureStopped(); } catch { processState = 'blocked'; }
@@ -47,7 +55,7 @@ export class DesktopService {
     if (this.demo && !within(directory, this.home)) throw Error('演示模式只能使用演示目录。');
     if(within(directory,this.storage)||within(this.storage,directory))throw Error('请选择具体 Claude 资料或项目目录，不能包含本工具的数据目录。');
     if (kind === 'desktop' && !/^Claude(?:[- ]|$)/.test(path.basename(directory)) && !await exists(path.join(directory, 'claude_desktop_config.json'))) throw Error('未识别为 Claude Desktop 资料，请核对目录。');
-    if (kind === 'code' && !await exists(path.join(directory, 'projects')) && !await exists(path.join(directory, '.claude.json'))) throw Error('未识别为 Claude Code 配置目录。');
+    if (kind === 'code' && !await exists(path.join(directory, 'projects')) && !await exists(path.join(directory, '.claude.json')) && !await exists(path.join(directory,'.credentials.json'))) throw Error('未识别为 Claude Code 配置目录。');
     this.plans.clear(); return this.register(directory, kind);
   }
   invalidate() { this.plans.clear(); return true; }
@@ -82,11 +90,14 @@ export class DesktopService {
     const selected = [...new Set(request.directoryIds)].map(id => this.directories.get(id));
     if(selected.some(d=>d.kind==='project'))throw Error('项目配置目录只用于环境概览，不参与清理。');
     const profiles = selected.filter(d => d.kind === 'desktop').map(d => d.path), codeDirs = selected.filter(d => d.kind === 'code').map(d => d.path);
-    if (!profiles.length) throw Error('首版需要至少选择一份 Desktop 资料；不会自动扩大到其他目录。');
+    if(this.platform==='win32') {
+      if(profiles.length||!codeDirs.length)throw Error('Windows 清理请选择 Code 配置目录。Desktop 资料可在会话与环境页面查看。');
+      if(request.traces||request.identityRecords||request.includeKeychain)throw Error('Windows 写入范围为所选 Code 登录状态。');
+    } else if (!profiles.length) throw Error('至少选择一份 Desktop 资料。');
     this.emit({ phase: 'planning', message: '读取选定资料并计算保护范围；不会改写原文件。' });
     const plan = await buildPlan('reset', { profiles, codeDirs, traces: request.traces, identityRecords: request.identityRecords, includeKeychain: request.includeKeychain, discardBackup: false, backupParent: path.join(this.storage, 'backups'), outputParent: path.join(this.storage, 'documents') }, this.context());
     this.checkCancel();
-    await fs.mkdir(path.join(this.storage, 'plans'), { recursive: true, mode: 0o700 });
+    await privateDirectory(path.join(this.storage,'plans'),{recursive:true});
     await savePlan(plan, path.join(this.storage, 'plans', plan.id + '.plan.json'));
     this.plans.set(plan.id, plan);
     return this.summary(plan);
@@ -103,7 +114,7 @@ export class DesktopService {
     const desktopIds = new Set(), codeIds = new Set();
     for (const [root, entries] of Object.entries(plan.inputs ?? {})) for (const [relative, meta] of Object.entries(entries)) {
       if (meta.type !== 'file') continue;
-      const file = path.join(root, relative);
+      const file = path.join(root, relative).split(path.sep).join('/');
       if (file.includes('/claude-code-sessions/') && /local_[a-f0-9-]{36}\.json$/i.test(file)) desktopIds.add(path.basename(file));
       if (file.includes('/projects/') && /[a-f0-9-]{36}\.jsonl$/i.test(file)) codeIds.add(path.basename(file));
     }
@@ -135,7 +146,7 @@ export class DesktopService {
     const plan = await buildRestorePlan(dir, [], this.context());
     if (!plan.entries.length) throw Error('这份备份没有需要恢复的文件。');
     this.plans.set(plan.id, plan);
-    return { id: plan.id, operation: 'restore', entries: plan.entries.map(e => ({ id: e.id, path: e.path })), backupDirectory: dir, warning: '恢复可能带回旧登录凭据。系统钥匙串无法由文件备份恢复。恢复前仍会备份当前文件。' };
+    return { id: plan.id, operation: 'restore', entries: plan.entries.map(e => ({ id: e.id, path: e.path })), backupDirectory: dir, warning: this.platform==='win32'?'恢复可能带回旧登录凭据。恢复前会校验访问权限并备份当前文件。':'恢复可能带回旧登录凭据。系统钥匙串无法由文件备份恢复。恢复前仍会备份当前文件。' };
   }
   async restore(id) {
     this.checkPlatform(); const plan = this.plans.get(id); this.plans.clear();

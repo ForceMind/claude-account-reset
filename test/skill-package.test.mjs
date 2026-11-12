@@ -6,9 +6,9 @@ import {parseCLI} from '../lib/cli.mjs';
 
 test('download package is a complete Skill with working reference and command graph',async()=>{
  const root=new URL('..',import.meta.url).pathname;
- execFileSync(process.execPath,['scripts/build-site.mjs'],{cwd:root});
+ execFileSync(process.execPath,['scripts/build-site.mjs','--source-only'],{cwd:root});
  const pkg=JSON.parse(await fs.readFile(new URL('../package.json',import.meta.url)));
- const archive=`site/downloads/claude-account-reset-${pkg.version}.tar.gz`;
+ const archive=`out/source/claude-account-reset-${pkg.version}.tar.gz`;
  const names=execFileSync('tar',['-tzf',archive],{cwd:root,encoding:'utf8'}).trim().split('\n');
  for(const name of ['SKILL.md','agents/openai.yaml','package.json','package-lock.json','bin/reset.mjs','bin/recover.mjs','bin/handoff.mjs','bin/backup.mjs','lib/cli.mjs','lib/engine.mjs','lib/planner.mjs'])assert.ok(names.includes(name),name);
  for(const name of ['desktop/main.mjs','desktop/library.mjs','desktop/environment.mjs','desktop/readonly.mjs','desktop/ui/renderer.ts','docs/DESKTOP.md','forge.config.cjs'])assert.ok(names.includes(name),name);
