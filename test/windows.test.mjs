@@ -7,9 +7,9 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { DesktopService } from '../desktop/service.mjs';
 import { createDemo } from '../desktop/demo.mjs';
-import { ensureStopped, isClaudeCommand } from '../lib/platform.mjs';
+import { ensureStopped, isClaudeCommand, validateProcessTable } from '../lib/platform.mjs';
 import { safe, fingerprint, within } from '../lib/safety.mjs';
-import { windowsDesktopRoaming, windowsFileAcl } from '../lib/windows.mjs';
+import { windowsDesktopRoaming, windowsFileAcl, windowsProcessTable } from '../lib/windows.mjs';
 
 const windows = process.platform === 'win32';
 
@@ -17,6 +17,16 @@ test('Windows process names recognize Claude without matching this maintenance a
   assert(isClaudeCommand('C:\\Users\\fixture\\bin\\claude.exe'));
   assert(isClaudeCommand('C:\\Program Files\\WindowsApps\\Claude_1.0_x64__pzs8sxrjxfjjc\\helper.exe'));
   assert(!isClaudeCommand('C:\\Apps\\Claude Account Reset.exe'));
+});
+
+test('Windows ignores a reused parent PID while still detecting live Claude', () => {
+  const rows = [
+    { ProcessId: 10, ParentProcessId: 20, Name: 'maintenance.exe', CreatedUtc: '2026-11-12T02:00:00.0000000Z' },
+    { ProcessId: 20, ParentProcessId: 10, Name: 'console.exe', CreatedUtc: '2026-11-12T03:00:00.0000000Z' }
+  ];
+  assert.doesNotThrow(() => validateProcessTable(windowsProcessTable(rows, 10), 10, { exitedParent: true }));
+  rows[1].Name = 'claude.exe';
+  assert.throws(() => validateProcessTable(windowsProcessTable(rows, 10), 10, { exitedParent: true }), /Claude Desktop\/Code is running/);
 });
 
 async function fixture(t) {
