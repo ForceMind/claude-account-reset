@@ -8,6 +8,8 @@
 
 同一工作流在独立 runner 注册了 Anthropic x64 MSIX `5.1231.2.0`，核对了包族和 Roaming 路径。清理与恢复验证只用合成资料。Windows 11 实机和在线重新登录尚未验证。
 
+官网发布完成。GitHub [v0.7.0 预发布](https://github.com/ForceMind/claude-account-reset/releases/tag/v0.7.0) 指向验收提交 `99c7436`。EXE、便携 ZIP 和校验清单与 CI 原件一致，匿名 Range 请求读回两个文件的开头。Pages 生产部署 `13a2b592` 使用站点提交 `3b6a21e`，回读首页、静态资源、Windows 校验清单及 v0.6.0 下载文件和跳转。浏览器未验证。
+
 目标：发布可复用的 macOS CLI、公开 GitHub 源码、说明网页及可校验的下载包，部署 Cloudflare Pages。
 
 当前批次：0.1.0。默认检查；清理、扩展痕迹、共享钥匙串分别显式选择。仅发布通用代码和匿名化经验。
