@@ -37,11 +37,17 @@ jobs:
         run: |
           $setup = Get-ChildItem 'out/make' -Filter 'Claude-Account-Reset-0.7.0-win-x64.exe' -Recurse | Select-Object -First 1
           if (!$setup) { throw 'Installer was not produced' }
+          Write-Host "Installer signature: $((Get-AuthenticodeSignature -LiteralPath $setup.FullName).Status)"
           $install = Start-Process $setup.FullName -ArgumentList '--silent' -Wait -PassThru
-          if ($install.ExitCode -ne 0) { throw 'Installation failed' }
-          $exe = Get-ChildItem "$env:LOCALAPPDATA/ClaudeAccountReset/app-*" -Filter 'Claude Account Reset.exe' -File | Select-Object -First 1
-          if (!$exe) { throw 'Installed executable not found' }
-          $app = Start-Process $exe.FullName -ArgumentList '--demo' -PassThru
+          $installRoot = Join-Path $env:LOCALAPPDATA 'ClaudeAccountReset'
+          $exe = Join-Path $installRoot 'app-0.7.0/Claude Account Reset.exe'
+          if ($install.ExitCode -ne 0 -or !(Test-Path -LiteralPath $exe -PathType Leaf)) {
+            foreach ($log in @("$installRoot/SquirrelSetup.log", "$env:LOCALAPPDATA/SquirrelTemp/SquirrelSetup.log", "$env:LOCALAPPDATA/SquirrelSetup.log")) {
+              if (Test-Path -LiteralPath $log -PathType Leaf) { Get-Content -LiteralPath $log -Tail 30 }
+            }
+            throw "Installation did not create the expected executable (exit code $($install.ExitCode))."
+          }
+          $app = Start-Process $exe -ArgumentList '--demo' -PassThru
           try {
             $ready = $false
             foreach ($attempt in 1..30) {
