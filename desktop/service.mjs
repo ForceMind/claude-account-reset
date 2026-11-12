@@ -6,6 +6,7 @@ import { executePlan, inspectBackup, buildRestorePlan, executeRestore } from '..
 import { discover } from '../lib/core.mjs';
 import { safe, exists, within, privateDirectory } from '../lib/safety.mjs';
 import { ensureStopped } from '../lib/platform.mjs';
+import { isWindowsDesktopProfile } from '../lib/windows.mjs';
 import { SessionLibrary } from './library.mjs';
 import { environmentOverview } from './environment.mjs';
 
@@ -26,7 +27,9 @@ export class DesktopService {
   register(directory, kind) {
     const found = [...this.directories].find(([, d]) => d.path === directory && d.kind === kind);
     if (found) return { id: found[0], ...found[1] };
-    const id = randomUUID(), item = { path: directory, kind, name: path.basename(directory) };
+    const id = randomUUID();
+    const writable = kind==='code'||(kind==='desktop'&&(this.platform!=='win32'||isWindowsDesktopProfile(directory,this.home,this.demo?{}:process.env)));
+    const item = { path: directory, kind, name: path.basename(directory), writable };
     this.directories.set(id, item); return { id, ...item };
   }
   async discover() {
@@ -91,8 +94,8 @@ export class DesktopService {
     if(selected.some(d=>d.kind==='project'))throw Error('项目配置目录只用于环境概览，不参与清理。');
     const profiles = selected.filter(d => d.kind === 'desktop').map(d => d.path), codeDirs = selected.filter(d => d.kind === 'code').map(d => d.path);
     if(this.platform==='win32') {
-      if(profiles.length||!codeDirs.length)throw Error('Windows 清理请选择 Code 配置目录。Desktop 资料可在会话与环境页面查看。');
-      if(request.traces||request.identityRecords||request.includeKeychain)throw Error('Windows 写入范围为所选 Code 登录状态。');
+      if(!selected.length||selected.some(d=>!d.writable))throw Error('请选择 Code 目录或已识别的 Windows MSIX Desktop 资料目录。');
+      if(request.traces||request.identityRecords||request.includeKeychain)throw Error('Windows 写入范围为所选资料中的已识别登录状态。');
     } else if (!profiles.length) throw Error('至少选择一份 Desktop 资料。');
     this.emit({ phase: 'planning', message: '读取选定资料并计算保护范围；不会改写原文件。' });
     const plan = await buildPlan('reset', { profiles, codeDirs, traces: request.traces, identityRecords: request.identityRecords, includeKeychain: request.includeKeychain, discardBackup: false, backupParent: path.join(this.storage, 'backups'), outputParent: path.join(this.storage, 'documents') }, this.context());
@@ -104,6 +107,10 @@ export class DesktopService {
   }
   summary(plan) {
     const limitations = [];
+    if(this.platform==='win32'&&plan.options.profiles.length) {
+      limitations.push('Desktop 仅处理已识别的配置字段和 claude.ai 登录 Cookie。其他凭据存储未检查。');
+      for(const warning of plan.warnings)if(warning.startsWith('Desktop cookie'))limitations.push('Cookie 数据库格式或事务状态无法确认。请完整退出 Claude 后重新检查。');
+    }
     if (plan.identity.credentialSources.some(s => s.apiKeyHelperConfigured)) limitations.push('选定 Code 配置使用外部凭据提供器。本次会保留它，之后仍可能提供登录凭据。');
     const environmentNames = [...new Set(plan.identity.credentialSources.flatMap(s => s.environmentVariableNames))];
     if (environmentNames.length) limitations.push('保留 Code 环境配置：' + environmentNames.join('、') + '。这些配置可能影响后续连接；此处不显示值。');
@@ -135,7 +142,7 @@ export class DesktopService {
     await safe(root);
     for (const entry of await fs.readdir(root, { withFileTypes: true })) if (entry.isDirectory() && /^run-[a-f0-9-]{36}$/.test(entry.name)) {
       const dir = path.join(root, entry.name), id = randomUUID(); this.backups.set(id, dir);
-      try { const data = await inspectBackup(dir, { home: this.home }); rows.push({ id, name: entry.name, path: dir, status: data.status, entries: data.entries.map(e => ({ id: e.id, path: e.path, state: e.state })), valid: true }); }
+      try { const data = await inspectBackup(dir, this.context()); rows.push({ id, name: entry.name, path: dir, status: data.status, entries: data.entries.map(e => ({ id: e.id, path: e.path, state: e.state })), valid: true }); }
       catch { rows.push({ id, name: entry.name, path: dir, valid: false, status: '无法验证，请保留原件' }); }
     }
     return rows;

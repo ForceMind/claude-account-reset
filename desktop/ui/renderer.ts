@@ -1,4 +1,4 @@
-type Row = { id: string; path: string; name: string; kind: 'desktop' | 'code' | 'project' };
+type Row = { id: string; path: string; name: string; kind: 'desktop' | 'code' | 'project'; writable: boolean };
 type Action = { kind: string; path: string; fields: string[]; irreversible: boolean; preservedValues: number | null };
 type Plan = { id: string; operation: 'reset' | 'restore'; actions: Action[]; protectedFiles: number; desktopSessions: number; codeSessions: number; backupBytes: number; stageBytes: number; backupParent: string; keychain: string; includeKeychain: boolean; limitations: string[]; entries?: {path: string}[]; warning?: string };
 type Backup = { id: string; name: string; path: string; status: string; valid: boolean; entries?: {state: string}[] };
@@ -23,8 +23,8 @@ function activate(view:string){for(const key of ['sessions','environment','reset
 function resetView() {
   activate('reset');
   heading('换个账号，保留已有对话。', '先查看本机资料，再审阅具体变更。每一次执行都会先备份并校验。'); steps(0);
-  const sources = rows.filter(row => windowsClient ? row.kind === 'code' : row.kind !== 'project');
-  const source = card('选择要检查的资料', windowsClient ? '选择 Code 配置目录以检查登录状态。Desktop 资料可在会话与环境页面查看。' : '选择一份 Desktop 资料。也可同时选择 Code 资料。');
+  const sources = rows.filter(row => windowsClient ? row.writable : row.kind !== 'project');
+  const source = card('选择要检查的资料', windowsClient ? '选择 Code 配置目录或已识别的 MSIX Desktop 资料。' : '选择一份 Desktop 资料。也可同时选择 Code 资料。');
   if (!sources.length) source.append(node('div', '尚未识别资料。点击下方按钮开始，或手动选择文件夹。', 'empty'));
   for (const row of sources) {
     const label = node('label', '', 'source-row'), checkbox = node('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(row.id);
@@ -33,11 +33,10 @@ function resetView() {
   }
   const tools = node('div', '', 'actions'); tools.append(button('识别本机资料', discover, true));
   if (!demo) for (const [kind, title] of [['desktop', '选择 Desktop 文件夹'], ['code', '选择 Code 文件夹']] as const) {
-    if (windowsClient && kind === 'desktop') continue;
-    tools.append(button(title, () => perform(async () => { const row = await call('pick', kind); if (row) { rows = [...rows.filter(r => r.id !== row.id), row]; resetView(); } }), true));
+    tools.append(button(title, () => perform(async () => { const row = await call('pick', kind); if (row) { rows = [...rows.filter(r => r.id !== row.id), row]; resetView(); if(windowsClient&&!row.writable)alert('该资料可在会话与环境页面查看。当前清理范围支持 Code 和已识别的 MSIX Desktop 目录。'); } }), true));
   }
   source.append(tools);
-  const settings = card('处理范围', windowsClient ? '清理所选 Code 目录中已识别的登录状态。' : '默认只处理已知登录状态。额外范围均须明确选择。');
+  const settings = card('处理范围', windowsClient ? '清理所选目录中已识别的登录状态。' : '默认只处理已知登录状态。额外范围均须明确选择。');
   const descriptions = { traces: ['已知缓存与遥测字段', '仅处理现有规则识别的字段，不是全盘缓存删除。'], identityRecords: ['本地身份登记字段', '额外处理 userID、ant-did 等已知登记；不更改 machineID。'], includeKeychain: ['共享钥匙串项', demo ? '演示模式禁用；不会访问真实系统钥匙串。' : '影响 Claude Safe Storage。文件备份不能恢复此项，执行时需再次确认。'] };
   for (const key of (windowsClient ? [] : Object.keys(descriptions)) as (keyof typeof descriptions)[]) {
     const label = node('label', '', 'option'), input = node('input'); input.type = 'checkbox'; input.name = key; input.checked = options[key]; input.disabled = demo && key === 'includeKeychain'; input.onchange = () => { options[key] = input.checked; invalidate(); };
@@ -55,7 +54,7 @@ function planView() {
   const keep = card('会保留什么', `识别到桌面索引 ${p.desktopSessions} 条、Code 正文 ${p.codeSessions} 份；两项可能指向同一会话，不能相加。`); keep.append(node('div', '用户消息、回答、工具记录、thinking、项目文件，以及未选择的资料。', 'protected'));
   const changes = card('本次会修改什么', '仅列出路径与字段名，不显示 Token、Cookie 内容或对话正文。');
   if (!p.actions.length) changes.append(node('p', '没有符合当前规则的清理项。可以返回调整选择。', 'caption'));
-  const labels: Record<string, string> = { json: '移除已知字段', delete: '删除已知登录状态文件', leveldb: '精确处理 Local Storage', keychain: '删除共享钥匙串项' };
+  const labels: Record<string, string> = { json: '移除已知字段', delete: '删除已知登录状态文件', leveldb: '精确处理 Local Storage', keychain: '删除共享钥匙串项', 'desktop-cookies': '移除已识别的登录 Cookie' };
   for (const a of p.actions) { const row = node('div', '', 'plan-item'); row.append(node('strong', labels[a.kind] || a.kind), node('span', a.path, 'path')); if (a.fields.length) row.append(node('p', a.fields.join('、'))); if (a.preservedValues !== null) row.append(node('p', `保留 ${a.preservedValues} 条其他键值，并逐项校验。`)); if (a.irreversible) row.append(node('p', '此项无法由文件备份恢复。', 'warning')); changes.append(row); }
   const backup = card('备份与影响', `还需暂存空间约 ${bytes(p.stageBytes)}，执行前会再次核对空间和资料状态。`); backup.append(node('span', p.backupParent, 'path'), node('p', '备份会保留，可在“备份与恢复”中检查。常规检查不覆盖浏览器、硬件密钥或服务端记录。', 'caption'));
   if (p.keychain === 'unavailable') backup.append(node('p', '钥匙串状态无法读取，不能将其视为已清理。', 'warning'));

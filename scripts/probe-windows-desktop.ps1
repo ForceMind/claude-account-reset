@@ -31,6 +31,7 @@ if ($LASTEXITCODE -eq 0) {
         $installed = Get-AppxPackage -Name $manifest.Package.Identity.Name | Select-Object -First 1
         if (!$installed) { throw 'MSIX registration unavailable' }
         $evidence.install = 'registered'
+        $evidence.package.family = $installed.PackageFamilyName
         $id = $manifest.Package.Applications.Application[0].Id
         Start-Process explorer.exe -ArgumentList ('shell:AppsFolder\' + $installed.PackageFamilyName + '!' + $id)
         $base = Join-Path $env:LOCALAPPDATA ('Packages\' + $installed.PackageFamilyName)

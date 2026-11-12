@@ -10,7 +10,9 @@ v0.7.0 的 Windows 交付目标为 Windows 11 x64。构建验证使用 Windows r
 
 ## Claude Desktop
 
-Windows 首批候选的 Desktop 入口用于浏览、环境检查与独立导出。目录发现覆盖常见 Roaming 资料和 Claude MSIX 的 Roaming 缓存候选。清理规则须依据已验证的应用布局与登录格式逐项开放。云端聊天、Cowork 和跨设备迁移沿用各自的产品边界。
+Windows Desktop 的目录发现覆盖常见 Roaming 资料和 Claude MSIX 的 Roaming 缓存。官方 x64 MSIX `5.1231.2.0` 在干净 runner 上注册成功，并创建 `LocalCache\Roaming\Claude`。空白安装缺少登录数据库样本，独立的网页安装器下载请求返回 403。
+
+对已识别的 MSIX 资料，清理计划检查 `config.json` 中已知登录字段，并对格式可识别的 Chromium Cookie 文件按名称和域名清除 `claude.ai` 的 `sessionKey`。事务文件存在或数据库格式未知时显示提示。规则通过合成资料验证，在线登录状态应在实际客户端确认。云端聊天、Cowork 和跨设备迁移沿用各自的产品边界。
 
 ## 验证和构建
 

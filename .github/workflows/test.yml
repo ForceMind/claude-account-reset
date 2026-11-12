@@ -28,7 +28,7 @@ jobs:
       - name: Verify packaged maintenance engine
         shell: pwsh
         run: |
-          $electron = node -p "require('electron')"
+          $electron = node -p "require('electron')" | Select-Object -Last 1
           $bundle = (Resolve-Path 'out/Claude Account Reset-win32-x64').Path
           $process = Start-Process -FilePath $electron -ArgumentList @('desktop/integration-smoke.mjs', ('"' + $bundle + '"')) -Wait -PassThru -NoNewWindow
           if ($process.ExitCode -ne 0) { throw 'Packaged maintenance test failed' }
