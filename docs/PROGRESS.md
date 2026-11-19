@@ -8,6 +8,8 @@ Windows 桌面客户端和 CLI 增加资料根核对与登录项预览。Windows
 
 同一候选在 macOS runner 完成回归、桌面构建及源码工具包打包。[GitHub v0.8.0 预发布](https://github.com/ForceMind/claude-account-reset/releases/tag/v0.8.0) 提供未签名的 Windows EXE、便携 ZIP、CLI / Skill 源码工具包和 SHA-256 清单。
 
+Cloudflare Pages 生产部署 `54971ab3` 使用站点提交 `01bf064`。两个生产域名的首页、静态资源、Windows 校验清单与既有 macOS 源码包均通过 HTTP 回读校验，macOS DMG 与 ZIP 跳转符合预期。Windows EXE 与 ZIP 的匿名请求返回 HTTP 206，文件签名与格式匹配。GitHub 公开资产摘要与校验清单一致，CLI 工具包完整下载后的 SHA-256 匹配。 [生产官网](https://claude-account-reset.pages.dev/)
+
 ## v0.7.0 Windows x64 候选 · 2026-11-12
 
 独立 `windows-support` 分支实现 Code 与已识别 MSIX Desktop 登录状态的清理、Windows 进程检查、备份与 ACL 校验恢复，并保留会话与 thinking。会话管理、环境概览、Markdown 导出和会话备份沿用桌面客户端流程。
