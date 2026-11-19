@@ -1,5 +1,13 @@
 # 交付记录
 
+## v0.8.0 Windows x64 预览版 · 2026-11-19
+
+Windows 桌面客户端和 CLI 增加资料根核对与登录项预览。Windows CLI 将可读历史归档和活动目录隔离设为独立计划。前者检查已知 UUID 并回读正文、工具记录、附件和文件历史，后者保留可回滚的原件。使用方法见 [Windows 说明](WINDOWS.md) 和 [重置检查清单](RESET-CHECKLIST.md)。
+
+候选提交 `b93aa89` 的 [Windows 工作流](https://github.com/ForceMind/claude-account-reset/actions/runs/44547615817) 通过 10 项测试、包内后台验证及安装启动。测试覆盖重定向资料根、Cookie 规则、归档读回、部分失败回滚和恢复冲突。官方 MSIX 布局探针在独立 runner 注册包并核对资料位置。真实账号、首次启动身份及原生续接未验证。浏览器未验证。
+
+同一候选在 macOS runner 完成回归、桌面构建及源码工具包打包。[GitHub v0.8.0 预发布](https://github.com/ForceMind/claude-account-reset/releases/tag/v0.8.0) 提供未签名的 Windows EXE、便携 ZIP、CLI / Skill 源码工具包和 SHA-256 清单。
+
 ## v0.7.0 Windows x64 候选 · 2026-11-12
 
 独立 `windows-support` 分支实现 Code 与已识别 MSIX Desktop 登录状态的清理、Windows 进程检查、备份与 ACL 校验恢复，并保留会话与 thinking。会话管理、环境概览、Markdown 导出和会话备份沿用桌面客户端流程。

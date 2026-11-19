@@ -1,0 +1,3 @@
+fbc6abb453aef6d046757587e42f2d336b2335f272736df9c37e4f742653abec  Claude-Account-Reset-0.8.0-win-x64.exe
+5716ac62ec25fb6a9974afd040dec335d4c9e784a4e94261419f38ed9bcd3388  Claude-Account-Reset-0.8.0-win-x64.zip
+81888fdfa13d0b22c768a1b5a29b2bb4d65bb0fe36a080652d01228fd89d0fc0  claude-account-reset-0.8.0.tar.gz
