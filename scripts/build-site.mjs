@@ -13,7 +13,7 @@ const name = `claude-account-reset-${pkg.version}.tar.gz`;
 for (const stale of await fs.readdir(out)) {
   if (/^claude-account-reset-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/.test(stale) && stale !== name) await fs.unlink(path.join(out, stale));
 }
-execFileSync('tar', ['--uid','0','--gid','0','--uname','root','--gname','root','--exclude=desktop/dist', '--exclude=.DS_Store', '-czf', path.join(out, name), 'package.json', 'package-lock.json', 'forge.config.cjs', 'SKILL.md', 'agents', 'bin', 'lib', 'desktop', 'scripts', 'test', 'release', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md', 'docs/HANDOFF.md', 'docs/SAFETY.md','docs/DESKTOP.md'], { cwd: root,env:{...process.env,COPYFILE_DISABLE:'1'} });
+execFileSync('tar', ['--uid','0','--gid','0','--uname','root','--gname','root','--exclude=desktop/dist', '--exclude=.DS_Store', '-czf', path.join(out, name), 'package.json', 'package-lock.json', 'forge.config.cjs', 'SKILL.md', 'agents', 'bin', 'lib', 'desktop', 'scripts', 'test', 'release', 'README.md', 'LICENSE', 'docs/LESSONS.md', 'docs/RECOVERY.md', 'docs/HANDOFF.md', 'docs/SAFETY.md','docs/DESKTOP.md','docs/WINDOWS.md','docs/RESET-CHECKLIST.md'], { cwd: root,env:{...process.env,COPYFILE_DISABLE:'1'} });
 const sha = createHash('sha256').update(await fs.readFile(path.join(out, name))).digest('hex');
 if (sourceOnly) {
   console.log(`Built candidate source archive ${name} SHA256 ${sha}`);

@@ -28,7 +28,8 @@ async function startWorker() {
   worker.on('message', message => {
     if (message.event) { if (!window?.isDestroyed()) window.webContents.send('maintenance:progress', message.event); return; }
     const job = pending.get(message.id); if (!job) return; pending.delete(message.id);
-    if (message.error) job.reject(Error(message.error)); else job.resolve(message.result);
+    if (message.error) job.reject(Object.assign(Error(message.error), { blocked: message.blocked === true }));
+    else job.resolve(message.result);
   });
   worker.on('exit', () => {
     workerAlive = false;
@@ -43,6 +44,16 @@ async function startWorker() {
 }
 function trusted(event) {
   if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw Error('拒绝未知窗口请求。');
+}
+function showExitWarning() {
+  const instruction = process.platform === 'win32'
+    ? '如果 Claude Desktop 留在系统托盘，请右键托盘图标并选择退出。'
+    : '请按 ⌘Q 完全退出 Claude Desktop。';
+  return dialog.showMessageBox(window, {
+    type: 'warning', title: '请先退出 Claude', message: '检测到 Claude 正在运行，或无法确认它已退出。',
+    detail: instruction + '\n请同时结束 Claude Code，然后重新生成计划。已有备份可在「备份与恢复」中查看。',
+    buttons: ['知道了'], noLink: true
+  });
 }
 async function confirm(plan, restoring) {
   const items = restoring ? plan.entries.length : plan.actions.length;
@@ -59,7 +70,11 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
     let result;
     switch (method) {
       case 'info': result = { version: app.getVersion(), demo, platform: process.platform }; break;
-      case 'discover': currentPlan = null; result = await request('discover'); break;
+      case 'discover':
+        currentPlan = null; result = await request('discover');
+        if (value === 'cleanup' && result.processState === 'blocked') await showExitWarning();
+        break;
+      case 'windowsAudit': result = await request('windowsAudit'); break;
       case 'pick': {
         if (!['desktop', 'code','project'].includes(value)) throw Error('资料类型无效。');
         if (demo) throw Error('演示模式只使用已生成的合成资料。');
@@ -103,6 +118,7 @@ ipcMain.handle('maintenance:call', async (event, method, value) => {
     return { ok: true, value: result };
   } catch (error) {
     currentPlan = null;
+    if (error.blocked && ['windowsAudit', 'preview', 'execute', 'previewRestore', 'restore'].includes(method)) await showExitWarning();
     // Worker messages are already sanitized. Main-process errors contain only fixed messages.
     return { ok: false, error: /^[\u3400-\u9fff]/.test(error.message ?? '') ? error.message.slice(0, 300) : '无法完成操作。请保留备份并重新检查。' };
   } finally { busy = false; }

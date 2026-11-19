@@ -7,6 +7,7 @@ import { discover } from '../lib/core.mjs';
 import { safe, exists, within, privateDirectory } from '../lib/safety.mjs';
 import { ensureStopped } from '../lib/platform.mjs';
 import { isWindowsDesktopProfile } from '../lib/windows.mjs';
+import { auditWindows, demoWindowsState } from '../lib/windows-audit.mjs';
 import { SessionLibrary } from './library.mjs';
 import { environmentOverview } from './environment.mjs';
 
@@ -17,7 +18,8 @@ export class DesktopService {
     this.library = new SessionLibrary({storage:this.storage,check:()=>this.checkCancel(),guard:()=>{this.checkCancel();if(!this.demo)ensureStopped();},emit:this.emit});
   }
   context() {
-    return { home: this.home, ...(this.demo ? { keychainState: () => 'absent', environment: {} } : {}), guard: () => { this.checkCancel(); if (!this.demo) ensureStopped(); }, checkCancelled: () => this.checkCancel(), onProgress: event => this.emit(event) };
+    return { home: this.home, ...(this.demo ? { keychainState: () => 'absent', environment: {},
+      windowsState: demoWindowsState(this.home) } : {}), guard: () => { this.checkCancel(); if (!this.demo) ensureStopped(); }, checkCancelled: () => this.checkCancel(), onProgress: event => this.emit(event) };
   }
   checkCancel() { if (this.cancelled) throw Error('Desktop operation stopped by user'); }
   checkPlatform() {
@@ -62,6 +64,11 @@ export class DesktopService {
     this.plans.clear(); return this.register(directory, kind);
   }
   invalidate() { this.plans.clear(); return true; }
+  async windowsAudit() {
+    if (this.platform !== 'win32') throw Error('此检查仅适用于 Windows。');
+    const { environment, windowsState, guard } = this.context();
+    return auditWindows(this.home, { environment, state: windowsState, guard });
+  }
   selectedDirectories(ids){
     this.checkPlatform();if(!Array.isArray(ids)||!ids.length||ids.length>100||ids.some(id=>!this.directories.has(id)))throw Error('请明确选择已经识别或授权的目录。');
     return [...new Set(ids)].map(id=>this.directories.get(id));
@@ -108,8 +115,16 @@ export class DesktopService {
   summary(plan) {
     const limitations = [];
     if(this.platform==='win32'&&plan.options.profiles.length) {
-      limitations.push('Desktop 仅处理已识别的配置字段和 claude.ai 登录 Cookie。其他凭据存储未检查。');
+      limitations.push('Desktop 仅处理已识别的配置字段和 claude.ai 登录 Cookie。其他存储可在 Windows 资料布局中检查。');
       for(const warning of plan.warnings)if(warning.startsWith('Desktop cookie'))limitations.push('Cookie 数据库格式或事务状态无法确认。请完整退出 Claude 后重新检查。');
+    }
+    if (plan.identity.windows) {
+      const { credentialManager, overrides } = plan.identity.windows;
+      if (credentialManager === 'possible-match') limitations.push('Windows 凭据管理器中发现可能相关的条目，仍需人工核对。');
+      if (credentialManager === 'unverified') limitations.push('Windows 凭据管理器无法核实。');
+      for (const [scope, names] of Object.entries(overrides)) {
+        if (names?.length) limitations.push(`Windows ${scope} 环境覆盖仍存在：${names.join('、')}。`);
+      }
     }
     if (plan.identity.credentialSources.some(s => s.apiKeyHelperConfigured)) limitations.push('选定 Code 配置使用外部凭据提供器。本次会保留它，之后仍可能提供登录凭据。');
     const environmentNames = [...new Set(plan.identity.credentialSources.flatMap(s => s.environmentVariableNames))];

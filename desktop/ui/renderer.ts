@@ -44,8 +44,34 @@ function resetView() {
   }
   settings.append(node('div', '始终保留：会话正文、thinking、项目文件和所有既有备份。', 'protected'));
   actions(button('生成只读检查与计划 →', () => perform(async () => { plan = await call('preview', { directoryIds: sources.filter(r=>selected.has(r.id)).map(r=>r.id), ...options }); planView(); })));
+  if (windowsClient) {
+    const layout = card('Windows 资料布局', '只检查位置、已知资料项和凭据覆盖来源。');
+    const results = node('div');
+    layout.append(button('检查资料布局', () => perform(async () => {
+      const audit = await call('windowsAudit');
+      results.replaceChildren();
+      if (audit.rootStatus !== 'verified') {
+        results.append(node('p', 'Windows 用户资料根无法核实。此环境的清理和隔离操作会停止。', 'warning'));
+        return;
+      }
+      const packageStatus: Record<string, string> = { registered: '已注册', 'not-registered': '未发现注册', unverified: '未验证' };
+      const credentialStatus: Record<string, string> = { 'possible-match': '发现可能相关的条目', 'no-project-name-match': '未匹配产品名称', unverified: '未验证', synthetic: '合成资料' };
+      results.append(node('p', `官方 MSIX ${packageStatus[audit.package] ?? '未验证'}。凭据管理器${credentialStatus[audit.credentialManager] ?? '未验证'}。`, 'caption'));
+      for (const [scope, names] of Object.entries(audit.overrides) as [string, string[] | null][]) {
+        if (names?.length) results.append(node('p', scope + ' · ' + names.join('、'), 'warning'));
+      }
+      for (const item of audit.roots) {
+        const row = node('div', '', 'plan-item');
+        row.append(node('strong', item.kind), node('span', item.path, 'path'));
+        if (item.present.length) row.append(node('p', item.present.join('、'), 'caption'));
+        results.append(row);
+      }
+      for (const item of audit.inaccessible) results.append(node('p', '未验证 · ' + item.path, 'warning'));
+    }), true), results);
+    card('脱敏归档与首次启动', 'Windows CLI 提供独立的只读历史归档计划和活动目录隔离计划。请先核对归档清单及校验，再查看拟隔离路径。命令说明见 docs/WINDOWS.md。');
+  }
 }
-async function discover() { return perform(async () => { const result = await call('discover'); rows = result.directories; selected.clear(); resetView(); if (result.processState === 'blocked') alert('检测到 Claude 运行或进程状态无法确认。可以选择目录；请完全退出 Claude 后再生成计划。'); }); }
+async function discover() { return perform(async () => { const result = await call('discover', 'cleanup'); rows = result.directories; selected.clear(); resetView(); if (result.processState === 'blocked') alert('检测到 Claude 运行或进程状态无法确认。可以选择目录；请完全退出 Claude 后再生成计划。'); }); }
 function bytes(n: number) { return n < 1048576 ? Math.ceil(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB'; }
 function planView() {
   if (!plan) return; const p = plan;

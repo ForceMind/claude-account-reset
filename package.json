@@ -1,6 +1,6 @@
 {
   "name": "claude-account-reset",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Local Claude maintenance with conversation preservation checks",
   "type": "module",
   "private": true,
@@ -27,7 +27,7 @@
     "desktop:package": "npm run desktop:build && electron-forge package --platform=darwin",
     "desktop:make": "npm run desktop:build && electron-forge make --platform=darwin && node scripts/make-dmg.mjs",
     "desktop:make:windows": "npm rebuild electron-winstaller --ignore-scripts=false && npm run desktop:build && electron-forge make --platform=win32 --arch=x64",
-    "test:windows": "node --test test/windows.test.mjs test/stream-contract.test.mjs"
+    "test:windows": "node --test test/windows.test.mjs test/windows-workflow.test.mjs test/stream-contract.test.mjs"
   },
   "dependencies": {
     "classic-level": "3.0.0",

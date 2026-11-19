@@ -82,7 +82,7 @@ test('MSIX Desktop removes only the verified cookie and login fields, then resto
   await fs.mkdir(path.dirname(cookie));
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync(cookie);
-  db.exec("CREATE TABLE cookies(host_key TEXT, name TEXT, encrypted_value BLOB); INSERT INTO cookies VALUES ('.claude.ai', 'sessionKey', x'0102'), ('.claude.ai', 'theme', x'0304'), ('.example.test', 'sessionKey', x'0506')");
+  db.exec("CREATE TABLE cookies(host_key TEXT, name TEXT, encrypted_value BLOB); INSERT INTO cookies VALUES ('.claude.ai', 'sessionKey', x'0102'), ('claude.ai', 'sessionKeyV2', x'0203'), ('.claude.ai', 'activitySessionId', x'0204'), ('.claude.ai', 'theme', x'0304'), ('.example.test', 'sessionKey', x'0506')");
   db.close();
   const before = await fingerprint([profile]);
   const acl = windowsFileAcl(cookie);
@@ -92,6 +92,8 @@ test('MSIX Desktop removes only the verified cookie and login fields, then resto
   const request = { ...f.request, directoryIds: [source.id] };
   const plan = await f.service.preview(request);
   assert.equal(plan.actions.find(action => action.kind === 'desktop-cookies')?.preservedValues, 2);
+  assert.deepEqual(plan.actions.find(action => action.kind === 'desktop-cookies')?.fields,
+    ['claude.ai · activitySessionId', 'claude.ai · sessionKey', 'claude.ai · sessionKeyV2']);
   assert.equal((await f.service.execute(plan.id)).protectedDataVerified, true);
   const after = new DatabaseSync(cookie, { readOnly: true });
   try {

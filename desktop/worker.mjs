@@ -11,14 +11,16 @@ process.parentPort.on('message', async ({ data }) => {
       service = new DesktopService({ ...config, emit: event => send({ event }) });
       send({ id: data.id, result: { demo: !!data.demo } }); return;
     }
-    if (!service || !['discover', 'addDirectory', 'invalidate', 'preview', 'execute', 'listBackups', 'previewRestore', 'restore','libraryScan','libraryPage','libraryPreview','libraryAnalyze','libraryMark','libraryPrepare','librarySave','libraryOutputs','libraryReveal','environment'].includes(data.method)) throw Error('Unknown desktop operation');
+    if (!service || !['discover', 'windowsAudit', 'addDirectory', 'invalidate', 'preview', 'execute', 'listBackups', 'previewRestore', 'restore','libraryScan','libraryPage','libraryPreview','libraryAnalyze','libraryMark','libraryPrepare','librarySave','libraryOutputs','libraryReveal','environment'].includes(data.method)) throw Error('Unknown desktop operation');
     service.cancelled = false;
     const result = await service[data.method](...(data.args ?? []));
     send({ id: data.id, result });
   } catch (error) {
     // Never forward arbitrary exception messages, which can contain credentials or file content.
-    const message = safeMessage(error.message);
-    send({ id: data.id, error: message });
+    const processError = /Claude Desktop\/Code is running|Claude cannot clean|process (?:table|inspection)|caller ancestry/i;
+    const blocked = processError.test(error.message ?? '') || processError.test(error.cause?.message ?? '');
+    const message = blocked ? '请完全退出 Claude Desktop 和 Claude Code，再重新检查。' : safeMessage(error.message);
+    send({ id: data.id, error: message, blocked });
   }
 });
 
@@ -28,6 +30,7 @@ function safeMessage(raw = '') {
   if (/Plan expired|Modified|Concurrent|changed|conflict/i.test(raw)) return '资料或计划已发生变化，操作已停止。备份会保留；请重新检查，不要覆盖新数据。';
   if (/space|ENOSPC/i.test(raw)) return '可用磁盘空间不足，操作已停止。请保留备份，释放空间后重新检查。';
   if (/EACCES|EPERM|permission/i.test(raw)) return '没有所需访问权限，操作已停止。无法检查不代表数据不存在。';
+  if (/Windows user data roots unverified/i.test(raw)) return 'Windows 用户资料根无法核实。请在正常的用户环境内重新检查。';
   if (/Symlink|Unsupported file|symbolic/i.test(raw)) return '资料包含不支持的链接或文件类型，操作已停止。';
   if (/Unsupported thinking|UTF-8|transcript|line exceeds/i.test(raw)) return '历史格式或编码不受支持，已停止本次读取或导出。原始历史未改写。';
   if (/^([\u3400-\u9fff])/.test(raw)) return raw.slice(0, 240);

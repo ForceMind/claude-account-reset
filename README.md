@@ -1,6 +1,6 @@
 # Claude Account Reset
 
-**在 Mac 本地管理 Claude Code 会话、看懂环境配置，并安全导出、备份或维护账号状态。**
+**在本机管理 Claude Code 会话、查看环境配置、导出历史并按计划维护账号状态。**
 
 [![Verify](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml/badge.svg)](https://github.com/ForceMind/claude-account-reset/actions/workflows/test.yml)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple_Silicon-325c4b)
@@ -10,7 +10,7 @@
 
 ## 桌面客户端
 
-当前版本为 **v0.6.0 桌面预览版**，支持 macOS Apple Silicon（arm64）。普通使用不需要安装 Node.js 或输入命令。应用有 ad-hoc 签名，尚未完成 Developer ID 分发签名和公证，可能出现系统安全提示；Intel 和 Windows 尚未验证。
+macOS Apple Silicon（arm64）当前公开版本为 **v0.6.0 桌面预览版**。应用有 ad-hoc 签名，尚未完成 Developer ID 分发签名和公证，可能出现系统安全提示。Windows x64 版本和校验清单见 [官网下载](https://claude-account-reset.pages.dev/#windows-downloads)。桌面应用无需 Node.js。
 
 1. 下载并打开 DMG，将应用拖入“应用程序”；也可解压 ZIP 后打开应用。
 2. 点击识别或手动选择资料目录，再主动读取会话或环境。启动本身不会扫描 Claude 数据。
@@ -30,6 +30,14 @@
 独立社区项目，与 Anthropic 无隶属关系。不能解除账号限制、保证设备匿名或迁移云端所有权。v0.6.0 的验证使用合成资料：69 项测试、本工具原生桌面演示、包内后台/原生模块及导出备份回读；未使用用户真实账号或会话，未验证真实 Claude 续聊，未运行浏览器验收。最初账号规则依据 Desktop 4.29.0，新版 Claude 格式仍需单独核实。
 
 [桌面使用与边界](docs/DESKTOP.md) · [安全机制](docs/SAFETY.md) · [恢复经验](docs/RECOVERY.md) · [接手文档](docs/HANDOFF.md) · [反馈问题](https://github.com/ForceMind/claude-account-reset/issues)
+
+### Windows 维护
+
+- **清理已知登录状态**。先完全退出 Claude。桌面客户端和 `bin/reset.mjs` 可预览已选择的 Code 和 MSIX Roaming 登录项，执行前备份并复核受保护历史。
+- **脱敏归档**。`bin/windows.mjs` 按用户所选的文件生成可读历史，复查路径和支持的内容里的已知 UUID。附件按原字节校验。
+- **首次启动前的活动目录隔离**。`bin/windows.mjs` 在归档读回通过后移走显式选定的官方活动路径，保留可回滚的原件。实际首次启动与登录身份需另验收。
+
+Windows 下载、命令和边界见 [Windows 使用说明](docs/WINDOWS.md) 和 [重置检查清单](docs/RESET-CHECKLIST.md)。以下安装脚本、原生续接和共享钥匙串命令适用于 macOS。
 
 ## 目录
 
