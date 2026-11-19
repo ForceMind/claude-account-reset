@@ -25,6 +25,11 @@ try {
   await new Promise((resolve, reject) => { const id = randomUUID(); pending.set(id, { resolve, reject }); worker.postMessage({ id, method: 'init', demo: true, richDemo:false, demoRoot: root }); });
   let found = await request('discover'); assert.equal(found.demo, true); assert.equal(found.directories.length, 2);
   assert(found.directories.every(d => d.path.startsWith(root + path.sep)));
+  if (windows) {
+    const audit = await request('windowsAudit');
+    assert.equal(audit.rootStatus, 'verified', audit.rootReason);
+    assert(audit.roots.some(entry => entry.kind === 'default-code'));
+  }
   const p = await request('preview', { directoryIds: found.directories.filter(d => !windows || d.kind === 'code').map(d => d.id), traces: false, identityRecords: false, includeKeychain: false });
   assert.equal(p.desktopSessions, windows ? 0 : 1); assert.equal(p.codeSessions, 1);
   const result = await request('execute', p.id); assert.equal(result.status, 'complete'); assert.equal(result.protectedDataVerified, true); assert.equal(result.backupDiscarded, false);
